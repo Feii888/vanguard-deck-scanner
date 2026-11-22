@@ -1,0 +1,2262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Vanguard Deck Scanner</title>
+<meta name="description" content="Drop Cardfight!! Vanguard results images, read every Decklog deck code in them, and see each deck's snapshot, grouped by team and seed.">
+<!-- Unlisted: search engines are asked not to index the hosted copy. -->
+<meta name="robots" content="noindex, nofollow">
+<!-- Home Screen app on iPhone, iPad and Android (icons and manifest are linked by script when hosted). -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Deck Scanner">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#EDF0F7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0D1020">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: a scan bench. Each source image sits on top with live boxes over every code it read;
+   the deck snapshots follow in the image's reading order, or grouped by team (seed A, B, C) for team events. */
+:root {
+  --bg: #EDF0F7; --surface: #FFFFFF; --sunk: #E2E6F0; --ink: #13172A; --muted: #596079; --line: #CDD3E2;
+  --accent: #2343C4; --accent-ink: #FFFFFF; --accent-soft: #DCE3FF;
+  --ok: #17804F; --ok-soft: #D9F2E6; --warn: #9A5B00; --warn-soft: #FCEBCB; --bad: #B42B42; --bad-soft: #FADDE2;
+  --scrim: rgba(9, 11, 22, .94);
+  --shadow: 0 1px 2px rgba(19, 23, 42, .06), 0 10px 28px -16px rgba(19, 23, 42, .28);
+  --f-display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --f-code: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --col: 520px; --team-col: 380px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1020; --surface: #151A2D; --sunk: #1C2239; --ink: #E5E8F4; --muted: #98A0BD; --line: #2A3152;
+    --accent: #8099FF; --accent-ink: #0D1020; --accent-soft: #223060;
+    --ok: #4FC98F; --ok-soft: #173A2C; --warn: #EDA94A; --warn-soft: #3D2E14; --bad: #FF7088; --bad-soft: #40202A;
+    --scrim: rgba(4, 5, 12, .96);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 30px -16px rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1020; --surface: #151A2D; --sunk: #1C2239; --ink: #E5E8F4; --muted: #98A0BD; --line: #2A3152;
+  --accent: #8099FF; --accent-ink: #0D1020; --accent-soft: #223060;
+  --ok: #4FC98F; --ok-soft: #173A2C; --warn: #EDA94A; --warn-soft: #3D2E14; --bad: #FF7088; --bad-soft: #40202A;
+  --scrim: rgba(4, 5, 12, .96);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 30px -16px rgba(0, 0, 0, .7);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 400 15px/1.5 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+body.lb-open { overflow: hidden; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+button, input { font: inherit; color: inherit; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1480px; margin: 0 auto; }
+
+/* ---------- top bar */
+.top {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; justify-content: space-between;
+  padding-block: 20px 16px;
+}
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand svg { flex: none; }
+.brand h1 { margin: 0; font: 700 22px/1.1 var(--f-display); letter-spacing: .01em; text-wrap: balance; }
+.brand p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.seg { display: inline-flex; background: var(--sunk); border-radius: 8px; padding: 3px; gap: 2px; }
+.seg button {
+  border: 0; background: transparent; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap;
+}
+.seg button[aria-checked="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.seg-label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.add { display: flex; gap: 6px; min-width: 0; }
+.add input {
+  width: 15rem; max-width: 100%; min-width: 0; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); font-family: var(--f-code); font-size: 14px; text-transform: uppercase;
+}
+.add input::placeholder { font-family: var(--f-body); text-transform: none; color: var(--muted); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid transparent; background: var(--accent); color: var(--accent-ink);
+  padding: 7px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+  text-decoration: none; white-space: nowrap; line-height: 1.2;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn.ghost:hover { background: var(--sunk); filter: none; }
+.btn.small { padding: 4px 10px; font-size: 13px; border-radius: 7px; }
+.btn.icon { padding: 6px; width: 32px; height: 32px; }
+.btn.small.icon { width: 28px; height: 28px; padding: 4px; }
+.btn svg { width: 16px; height: 16px; flex: none; }
+
+/* ---------- drop zone */
+.drop {
+  position: relative; display: grid; gap: 10px; justify-items: center; text-align: center;
+  border: 2px dashed var(--line); border-radius: 14px; background: var(--surface);
+  padding: 44px 20px; transition: border-color .15s, background .15s;
+}
+.drop h2 { margin: 0; font: 700 24px/1.2 var(--f-display); text-wrap: balance; }
+.drop p { margin: 0; color: var(--muted); max-width: 64ch; }
+.drop .how { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; align-items: center; }
+.drop code, .mono { font-family: var(--f-code); font-weight: 500; }
+.drop code { background: var(--sunk); padding: 1px 6px; border-radius: 5px; font-size: .92em; color: var(--ink); }
+kbd { font-family: var(--f-code); font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; background: var(--bg); color: var(--ink); }
+.engine { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; text-align: left; }
+.engine .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.engine[data-state="ready"] .dot { background: var(--ok); }
+.engine[data-state="loading"] .dot { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+.engine[data-state="error"] .dot { background: var(--bad); }
+.how-or { color: var(--muted); font-size: 14px; }
+.drop-foot { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; justify-content: center; }
+.auto { font-size: 13px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.auto input { margin: 0; accent-color: var(--accent); }
+.drop.compact { grid-template-columns: 1fr auto; justify-items: start; text-align: left; padding: 12px 16px; gap: 4px 16px; align-items: center; }
+.drop.compact h2 { font-size: 16px; }
+.drop.compact .lede, .drop.compact .examples { display: none; }
+.drop.compact .drop-foot { grid-column: 1; justify-content: start; }
+.drop.compact .how { grid-column: 2; grid-row: 1 / span 2; justify-content: end; }
+
+/* ---------- staging tray: images wait here until you press Scan */
+.tray { display: grid; gap: 12px; width: 100%; text-align: left; }
+.tray-items { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); }
+.tray-item {
+  position: relative; margin: 0; display: grid; gap: 4px; padding: 6px; min-width: 0;
+  border-radius: 10px; background: var(--bg); border: 1px solid var(--line);
+}
+.tray-item.new { animation: flash 1s ease-out; }
+.tray-item img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 6px; background: var(--sunk); }
+.tray-item figcaption { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tray-item figcaption b { color: var(--ink); font-weight: 600; }
+.tray-item .warn { color: var(--warn); }
+.tray-num { position: absolute; top: 10px; left: 10px; font: 700 12px/1 var(--f-code); background: var(--ink); color: var(--bg); padding: 4px 6px; border-radius: 5px; }
+.tray-btns { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
+.tray-btns button {
+  width: 26px; height: 26px; padding: 0; border-radius: 6px; border: 0; cursor: pointer;
+  background: rgba(13, 16, 32, .78); color: #fff; display: grid; place-items: center; font: 700 14px/1 var(--f-body);
+}
+.tray-btns button:hover { background: rgba(13, 16, 32, .95); }
+.tray-btns svg { width: 14px; height: 14px; }
+.tray-actions { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; justify-content: flex-end; }
+#trayScan { padding: 9px 18px; font-size: 15px; }
+.tray-key { font-size: 12px; margin-left: -4px; }
+@media (max-width: 640px) { .tray-key { display: none; } }
+body.dragging .drop { border-color: var(--accent); background: var(--accent-soft); }
+body.dragging .drop::after {
+  content: attr(data-drop-label); position: absolute; inset: 0; display: grid; place-items: center;
+  font: 700 20px var(--f-display); color: var(--accent); background: var(--accent-soft); border-radius: 12px;
+}
+
+/* ---------- summary */
+.summary {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 16px;
+  padding: 10px 14px; background: var(--surface); border-radius: 12px; box-shadow: var(--shadow);
+}
+.summary .count { font: 700 18px var(--f-display); margin-right: auto; }
+.summary .count small { font: 500 13px var(--f-body); color: var(--muted); margin-left: 8px; }
+.jump { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
+.jump button {
+  display: inline-flex; gap: 6px; align-items: baseline; border: 1px solid var(--line); background: var(--bg);
+  border-radius: 999px; padding: 3px 10px; font-size: 12.5px; cursor: pointer; color: var(--ink);
+}
+.jump button:hover { border-color: var(--accent); }
+.jump button b { font-weight: 600; }
+.jump button span { color: var(--muted); }
+.jump button.busy span { color: var(--accent); }
+
+/* ---------- source sections */
+#sources { display: grid; gap: 34px; margin-top: 24px; }
+.source { display: grid; gap: 14px; min-width: 0; scroll-margin-top: 12px; }
+.source-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.source-head h2 { margin: 0; font: 700 18px/1.2 var(--f-display); }
+.source-head .fname { font: 500 13px var(--f-body); color: var(--muted); overflow-wrap: anywhere; }
+.source-head .stats { font-size: 13px; color: var(--muted); }
+.source-head .stats b { color: var(--ink); font-weight: 600; }
+.source-head .activity { color: var(--accent); }
+.source-head .acts { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.source-head .acts .seg button { padding: 4px 10px; font-size: 12.5px; }
+.source-error { color: var(--bad); background: var(--bad-soft); padding: 10px 12px; border-radius: 10px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.bench { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.figure {
+  position: relative; margin: 0; flex: none; max-width: 100%;
+  border-radius: 10px; overflow: hidden; background: var(--sunk); box-shadow: var(--shadow);
+}
+.figure > img { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+.overlay { position: absolute; inset: 0; }
+.figure.selecting { cursor: crosshair; }
+.figure.selecting .overlay { touch-action: none; }
+.figure.selecting .box { pointer-events: none; opacity: .5; }
+.box {
+  position: absolute; padding: 0; margin: 0; border: 2px solid var(--accent); border-radius: 4px;
+  background: transparent; cursor: pointer; box-shadow: 0 0 0 1px rgba(255,255,255,.6);
+}
+.box.found { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.box.missing { border-color: var(--bad); border-style: dashed; background: color-mix(in srgb, var(--bad) 12%, transparent); }
+.box.empty { border-color: var(--muted); border-style: dashed; background: color-mix(in srgb, var(--muted) 14%, transparent); }
+.box.checking { animation: pulse 1s ease-in-out infinite; }
+.box:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.box-num {
+  position: absolute; right: 100%; top: 50%; transform: translateY(-50%); margin-right: 3px; white-space: nowrap;
+  font: 700 11px/1 var(--f-code); color: var(--surface); background: var(--ok); padding: 3px 5px; border-radius: 4px;
+}
+.box.missing .box-num { background: var(--bad); }
+.box.empty .box-num, .box.checking .box-num { background: var(--muted); }
+.box.edge .box-num { right: auto; left: 100%; margin: 0 0 0 3px; }
+.sel { position: absolute; border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); border-radius: 3px; pointer-events: none; }
+.progress {
+  position: absolute; left: 10px; right: 10px; bottom: 10px; padding: 8px 10px; border-radius: 8px;
+  background: var(--surface); box-shadow: var(--shadow); font-size: 13px; display: grid; gap: 6px;
+}
+.progress .bar { height: 4px; background: var(--sunk); border-radius: 2px; overflow: hidden; }
+.progress .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.progress .bar.indet i { width: 35%; animation: slide 1.1s ease-in-out infinite; }
+
+/* unmatched list */
+.unmatched { flex: 1 1 320px; min-width: 0; display: grid; gap: 8px; align-content: start; }
+.unmatched h3 { margin: 0; font: 600 13px var(--f-body); letter-spacing: .06em; text-transform: uppercase; color: var(--bad); }
+.unmatched p.help { margin: 0; font-size: 13px; color: var(--muted); }
+.chips { display: grid; gap: 8px; }
+.chip {
+  display: flex; gap: 10px; align-items: flex-start; padding: 10px; border-radius: 10px; min-width: 0;
+  background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--bad); scroll-margin: 24px;
+}
+.chip-main { display: grid; gap: 6px; min-width: 0; flex: 1; }
+.chip-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.chip-note { font-size: 13px; color: var(--muted); }
+.chip-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.alts { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--muted); align-items: center; }
+.alt { display: grid; gap: 4px; justify-items: start; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); cursor: pointer; }
+.alt:hover { border-color: var(--accent); }
+.alt img { width: 150px; height: auto; border-radius: 4px; display: block; }
+.alt span { font: 700 13px var(--f-code); }
+
+/* ---------- deck cards */
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--col)), 1fr)); }
+.deck {
+  display: grid; grid-template-rows: auto 1fr; min-width: 0; align-content: start;
+  background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden;
+  scroll-margin: 24px;
+}
+.deck.flash, .chip.flash { animation: flash 1.2s ease-out; }
+.deck-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; min-width: 0; }
+.num {
+  flex: none; min-width: 28px; height: 28px; padding: 0 6px; border-radius: 7px; display: grid; place-items: center;
+  font: 700 14px var(--f-code); background: var(--ok); color: var(--surface);
+}
+.pending .num, .placeholder .num { background: var(--sunk); color: var(--muted); }
+.crop { flex: none; height: 52px; width: auto; max-width: 132px; border-radius: 6px; background: var(--sunk); display: block; object-fit: contain; }
+.id { display: grid; gap: 3px; min-width: 0; margin-right: auto; }
+.code {
+  font: 700 19px/1.15 var(--f-code); letter-spacing: .04em; border: 0; background: transparent; padding: 0;
+  cursor: text; text-align: left; border-bottom: 1px dashed transparent; justify-self: start;
+}
+.code:hover { border-bottom-color: var(--muted); }
+.code-edit {
+  font: 700 18px var(--f-code); letter-spacing: .04em; width: 8.5ch; padding: 1px 4px; text-transform: uppercase;
+  border: 1px solid var(--accent); border-radius: 6px; background: var(--bg);
+}
+.pills { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.pill { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--sunk); color: var(--muted); white-space: nowrap; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.tag { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.deck-acts { display: flex; gap: 6px; flex: none; }
+.shot { display: block; border: 0; padding: 0; margin: 0; background: var(--sunk); cursor: zoom-in; width: 100%; }
+.shot img { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 884; }
+.skeleton { aspect-ratio: 1200 / 884; background: linear-gradient(100deg, var(--sunk) 30%, var(--bg) 50%, var(--sunk) 70%); background-size: 300% 100%; animation: shimmer 1.4s linear infinite; }
+.deck.placeholder { background: transparent; box-shadow: none; border: 2px dashed var(--line); }
+/* Narrow cards (three across in a team row): icon-only Decklog link, no site pill, smaller crop. */
+.deck { container-type: inline-size; }
+@container (max-width: 470px) {
+  .deck-acts .btn-label { display: none; }
+  .deck-head .pill.ok { display: none; }
+  .deck-head { gap: 8px; padding: 8px 10px; }
+  .crop { height: 46px; max-width: 104px; }
+  .code { font-size: 17px; }
+}
+.ph-title { font-weight: 600; }
+.ph-note { font-size: 12.5px; color: var(--muted); }
+.ph-form { display: flex; gap: 8px; align-items: center; padding: 0 12px 12px; flex-wrap: wrap; }
+
+/* ---------- teams */
+.teams { display: grid; gap: 26px; }
+.team { display: grid; gap: 10px; min-width: 0; }
+.team-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+.place {
+  font: 700 26px/1.1 var(--f-display); border: 0; background: transparent; color: var(--ink); padding: 0;
+  cursor: pointer; border-bottom: 1px dashed transparent;
+}
+.place:hover { border-bottom-color: var(--muted); }
+.place-edit { width: 6ch; font: 700 20px var(--f-display); padding: 2px 6px; border: 1px solid var(--accent); border-radius: 6px; background: var(--bg); }
+.team-sub { font-size: 13px; color: var(--muted); }
+.team-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--team-col)), 1fr)); align-items: start; }
+
+/* ---------- section tabs */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 18px; overflow-x: auto; scrollbar-width: none; }
+.tabs button {
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; cursor: pointer;
+  border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: transparent;
+  padding: 10px 14px; font: 600 14px var(--f-body); color: var(--muted);
+}
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+
+/* ---------- guide and FAQ */
+.doc { max-width: 860px; display: grid; gap: 22px; padding-block: 4px 24px; }
+.doc h2 { margin: 0; font: 700 28px/1.15 var(--f-display); text-wrap: balance; }
+.doc h3 { margin: 0; font: 700 18px/1.25 var(--f-display); }
+.doc p { margin: 0; max-width: 68ch; }
+.doc .intro { color: var(--muted); margin-top: 6px; }
+.doc kbd { font-size: 12.5px; padding: 1px 6px; white-space: nowrap; }
+.doc-card { background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); padding: 18px 20px; display: grid; gap: 14px; min-width: 0; }
+.doc .note { font-size: 13.5px; color: var(--muted); }
+.steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: grid; gap: 14px; }
+.steps li { counter-increment: step; display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start; }
+.steps li::before {
+  content: counter(step); width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink); font: 700 15px var(--f-code);
+}
+.steps li > div { max-width: 66ch; padding-top: 3px; }
+.steps b { font-weight: 600; }
+.legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.legend li { display: grid; grid-template-columns: minmax(0, 190px) 1fr; gap: 14px; align-items: center; }
+.legend .sample { display: flex; justify-self: start; }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.dashed { background: transparent; border: 1.5px dashed var(--line); color: var(--muted); }
+.table-wrap { overflow-x: auto; margin-inline: -4px; }
+.keys { width: 100%; min-width: 540px; border-collapse: collapse; font-size: 14px; }
+.keys th, .keys td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.keys tbody tr:last-child td { border-bottom: 0; }
+.keys th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.keys td:first-child { width: 42%; }
+.keys .mine { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.you { margin-left: 6px; padding: 1px 6px; border-radius: 4px; font-size: 10px; letter-spacing: .06em; background: var(--accent); color: var(--accent-ink); vertical-align: 1px; }
+.faq-group { display: grid; gap: 14px; }
+.faq-group > h3 { font: 600 12.5px var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.qa h4 { margin: 0 0 4px; font: 600 16px/1.35 var(--f-body); }
+.qa p { color: var(--ink); }
+@media (max-width: 640px) {
+  .legend li { grid-template-columns: 1fr; gap: 4px; }
+  .doc-card { padding: 16px; }
+  /* Phone: each shortcut stacks, with Windows and Mac labelled. */
+  .keys { min-width: 0; }
+  .keys thead { display: none; }
+  .keys, .keys tbody, .keys tr, .keys td { display: block; width: auto; }
+  .keys tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .keys tbody tr:last-child { border-bottom: 0; }
+  .keys td, .keys tbody tr:last-child td { border: 0; padding: 3px 6px; }
+  .keys td:first-child { width: auto; font-weight: 600; padding-bottom: 5px; }
+  .keys td[data-os]::before { content: attr(data-os-label); display: inline-block; min-width: 70px; font-size: 12px; color: var(--muted); }
+}
+
+/* ---------- lightbox */
+.lb { position: fixed; inset: 0; z-index: 50; background: var(--scrim); display: grid; grid-template-rows: auto 1fr; color: #EEF0F8; }
+.lb-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
+}
+.lb-bar .lb-code { font: 700 22px var(--f-code); letter-spacing: .04em; }
+.lb-bar .lb-team { font: 700 15px var(--f-display); background: rgba(255,255,255,.14); padding: 2px 10px; border-radius: 999px; }
+.lb-bar .lb-meta { font-size: 13px; opacity: .75; margin-right: auto; }
+.lb .btn.ghost { color: #EEF0F8; border-color: rgba(255,255,255,.25); }
+.lb .btn.ghost:hover { background: rgba(255,255,255,.1); }
+.lb-stage { position: relative; display: grid; place-items: center; min-height: 0; padding: 0 56px 16px; }
+.lb-stage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; }
+.lb-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 64px; border-radius: 10px; border: 0; background: rgba(255,255,255,.1); color: #fff; cursor: pointer; display: grid; place-items: center; }
+.lb-nav:hover { background: rgba(255,255,255,.2); }
+.lb-nav svg { width: 22px; height: 22px; }
+.lb-prev { left: max(6px, env(safe-area-inset-left, 0px)); } .lb-next { right: max(6px, env(safe-area-inset-right, 0px)); }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px);
+  background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 9px; font-size: 14px; font-weight: 500;
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 60; max-width: calc(100% - 32px);
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@keyframes pulse { 50% { opacity: .45; } }
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -200% 0; } }
+@keyframes flash { 0% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: var(--shadow); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+@media (max-width: 640px) {
+  .drop.compact { grid-template-columns: 1fr; }
+  .drop.compact .how { grid-column: 1; grid-row: auto; justify-content: start; }
+  .lb-stage { padding: 0 8px 70px; }
+  .lb-nav { top: auto; bottom: 8px; transform: none; height: 48px; }
+  .add input { width: 100%; }
+  .add { flex: 1 1 100%; }
+  .deck-head { flex-wrap: wrap; }
+  .source-head .acts { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="9" y="4" width="22" height="32" rx="3" fill="var(--accent)"/>
+        <rect x="12.5" y="8" width="15" height="12" rx="1.5" fill="var(--accent-ink)" opacity=".85"/>
+        <rect x="12.5" y="23" width="15" height="2.4" rx="1.2" fill="var(--accent-ink)" opacity=".6"/>
+        <rect x="12.5" y="27.5" width="9" height="2.4" rx="1.2" fill="var(--accent-ink)" opacity=".6"/>
+        <rect x="3" y="18.8" width="34" height="2.4" rx="1.2" fill="var(--ok)"/>
+      </svg>
+      <div>
+        <h1>Vanguard Deck Scanner</h1>
+        <p>Read Decklog codes from results images and open every deck</p>
+      </div>
+    </div>
+    <div class="controls">
+      <span class="seg-label" id="siteLabel">Decklog</span>
+      <div class="seg" role="radiogroup" aria-labelledby="siteLabel" id="siteSeg">
+        <button type="button" role="radio" data-site="jp" aria-checked="true" title="decklog.bushiroad.com">JP</button>
+        <button type="button" role="radio" data-site="en" aria-checked="false" title="decklog-en.bushiroad.com">EN</button>
+      </div>
+      <span class="seg-label" id="sizeLabel">Size</span>
+      <div class="seg" role="radiogroup" aria-labelledby="sizeLabel" id="sizeSeg">
+        <button type="button" role="radio" data-size="s" aria-checked="false">S</button>
+        <button type="button" role="radio" data-size="m" aria-checked="true">M</button>
+        <button type="button" role="radio" data-size="l" aria-checked="false">L</button>
+      </div>
+      <form class="add" id="addForm" autocomplete="off">
+        <label class="sr" for="codeInput">Deck code or Decklog link</label>
+        <input id="codeInput" name="code" placeholder="Type a code or paste a link" spellcheck="false">
+        <button class="btn" type="submit">Add</button>
+      </form>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button type="button" role="tab" id="tab-scanner" data-view="scanner" aria-controls="view-scanner" aria-selected="true">Scanner<span class="tab-dot" hidden></span></button>
+    <button type="button" role="tab" id="tab-guide" data-view="guide" aria-controls="view-guide" aria-selected="false" tabindex="-1">Guide &amp; hotkeys</button>
+    <button type="button" role="tab" id="tab-faq" data-view="faq" aria-controls="view-faq" aria-selected="false" tabindex="-1">FAQ</button>
+  </nav>
+
+  <div id="view-scanner" role="tabpanel" aria-labelledby="tab-scanner">
+  <section class="drop" id="drop" aria-label="Add images" data-drop-label="Drop to add">
+    <input type="file" id="fileInput" accept="image/*" multiple hidden>
+    <h2 id="dropTitle">Paste or drop results images</h2>
+    <p class="lede" data-touch="Collect as many images as you like: tap Choose images to pick from your photos, or paste pictures and X / Twitter post links into the box at the top, then scan them together. Each code found opens as a deck snapshot from Decklog.">Collect as many images as you like: paste pictures or X / Twitter post links with <kbd class="k-mod">Ctrl</kbd>+<kbd>V</kbd>, drag and drop, or use the file picker, then scan them together. Each code found opens as a deck snapshot from Decklog. New here? Read the <a href="#guide">guide</a>.</p>
+    <div class="how">
+      <button class="btn" type="button" id="pickBtn">Choose images</button>
+      <span class="how-or" data-touch="or paste a picture or link into the box at the top">or paste with <kbd class="k-mod">Ctrl</kbd>+<kbd>V</kbd></span>
+    </div>
+    <div class="tray" id="tray" hidden>
+      <div class="tray-items" id="trayItems" aria-live="polite"></div>
+      <div class="tray-actions">
+        <span class="seg-label" id="trayFmtLabel">Event format</span>
+        <div class="seg" role="radiogroup" aria-labelledby="trayFmtLabel" id="trayFmt">
+          <button type="button" role="radio" data-fmt="solo" aria-checked="true">Solo</button>
+          <button type="button" role="radio" data-fmt="trio" aria-checked="false">Teams of 3</button>
+        </div>
+        <button class="btn ghost small" type="button" id="trayClear">Clear</button>
+        <button class="btn" type="button" id="trayScan" aria-keyshortcuts="Control+Enter">Scan images</button>
+        <span class="how-or tray-key"><kbd class="k-mod">Ctrl</kbd>+<kbd class="k-enter">Enter</kbd></span>
+      </div>
+    </div>
+    <p class="examples">Codes look like <code>1GPYLQ</code> or <code>M5CZ6</code>. Links such as <code>decklog.bushiroad.com/view/1E74U4</code> can go in the box above.</p>
+    <div class="drop-foot">
+      <label class="auto" for="autoScan"><input type="checkbox" id="autoScan" aria-labelledby="autoScanText"> <span id="autoScanText">Scan right away when images are added</span></label>
+      <div class="engine" id="engine" data-state="idle" role="status"><span class="dot"></span><span id="engineText">Text reader not loaded yet</span></div>
+    </div>
+  </section>
+
+  <div class="summary" id="summary" hidden>
+    <div class="count" id="sumCount">0 decks</div>
+    <button class="btn ghost small" type="button" id="copyCodes">Copy codes</button>
+    <button class="btn ghost small" type="button" id="copyLinks">Copy links</button>
+    <button class="btn ghost small" type="button" id="clearAll">Clear all</button>
+    <nav class="jump" id="jump" aria-label="Jump to image" hidden></nav>
+  </div>
+
+  <div id="sources"></div>
+  </div>
+
+  <!-- ================= Guide ================= -->
+  <section class="doc" id="view-guide" role="tabpanel" aria-labelledby="tab-guide" hidden>
+    <div>
+      <h2>Quick guide</h2>
+      <p class="intro">Collect your results images first, then scan them in one go. Everything works the same on Windows and Mac; only the shortcut keys differ, and both are listed below. You're on <b class="os-name">Windows</b>.</p>
+      <p class="intro hosted-only" hidden>On a phone or tablet: open this page in Safari (iPhone, iPad) or Chrome (Android) and use Share → <i>Add to Home Screen</i> to get it as an app. On a Mac you can also <a href="Vanguard%20Deck%20Scanner%20for%20Mac.zip" download>download the Mac app</a>.</p>
+    </div>
+
+    <div class="doc-card">
+      <h3>Scan a batch of images</h3>
+      <ol class="steps">
+        <li><div><b>Paste images one after another</b> with <kbd class="k-mod">Ctrl</kbd>+<kbd>V</kbd>. That can be a picture, a link to an X / Twitter post (all of the post's pictures come in), or a link to a picture. You can also drag and drop files, or use <i>Choose images</i>. Each image shows up as a numbered thumbnail, labelled “Pasted image 1” or “@account picture 1 of 4” and so on.</div></li>
+        <li><div><b>Arrange the list if you need to.</b> The ← and → buttons on a thumbnail move it earlier or later, and × removes it. That order becomes Image 1, 2, 3 in the results.</div></li>
+        <li><div><b>Pick Solo or Teams of 3</b> next to the Scan button. It applies to the whole batch and is remembered for next time. You can still change any single image after scanning.</div></li>
+        <li><div><b>Press “Scan N images”</b>, or <kbd class="k-mod">Ctrl</kbd>+<kbd class="k-enter">Enter</kbd>. The images are scanned in the order shown, and the page jumps to the first one.</div></li>
+      </ol>
+    </div>
+
+    <div class="doc-card">
+      <h3>Reading the results</h3>
+      <ul class="legend">
+        <li><span class="sample"><span class="num">1</span></span><span>Numbered boxes on the image match the numbered deck cards below it. Click a box to jump to its deck.</span></li>
+        <li><span class="sample"><span class="tag">1st · Seed A</span></span><span>In Teams of 3, decks are grouped under their placement. Seed A is the left seat, B the middle, C the right.</span></li>
+        <li><span class="sample"><span class="pill warn">First read as 1ZNWSE</span></span><span>The code was corrected after a closer look. Compare it with the cropped name and code shown next to it.</span></li>
+        <li><span class="sample"><span class="pill bad">Not found on Decklog</span></span><span>Pick one of the look-alike codes offered, or click the code and type what the image shows.</span></li>
+        <li><span class="sample"><span class="pill dashed">No code read here</span></span><span>An empty seat in a team. Type the code shown in its crop.</span></li>
+        <li><span class="sample"><span class="pill">Snapshot</span></span><span>Click a deck picture to enlarge it, then flip through every deck with the arrow keys.</span></li>
+        <li><span class="sample"><span class="pill">Copy links</span></span><span>Puts every deck on the clipboard, one per line, with its placement and seed.</span></li>
+      </ul>
+    </div>
+
+    <div class="doc-card">
+      <h3>Hotkeys</h3>
+      <div class="table-wrap">
+        <table class="keys">
+          <thead><tr><th scope="col">Action</th><th scope="col" data-os="win">Windows</th><th scope="col" data-os="mac">Mac</th></tr></thead>
+          <tbody>
+            <tr><td>Paste images into the tray</td><td data-os="win"><kbd>Ctrl</kbd> + <kbd>V</kbd></td><td data-os="mac"><kbd>⌘ Cmd</kbd> + <kbd>V</kbd></td></tr>
+            <tr><td>Scan everything in the tray</td><td data-os="win"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></td><td data-os="mac"><kbd>⌘ Cmd</kbd> + <kbd>↩ Return</kbd></td></tr>
+            <tr><td>Screenshot part of the screen to the clipboard, ready to paste here</td><td data-os="win"><kbd>⊞ Win</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd></td><td data-os="mac"><kbd>⌃ Control</kbd> + <kbd>⇧ Shift</kbd> + <kbd>⌘ Cmd</kbd> + <kbd>4</kbd></td></tr>
+            <tr><td>Enlarged deck: previous / next</td><td data-os="win"><kbd>←</kbd> / <kbd>→</kbd></td><td data-os="mac"><kbd>←</kbd> / <kbd>→</kbd></td></tr>
+            <tr><td>Close the enlarged deck</td><td data-os="win"><kbd>Esc</kbd></td><td data-os="mac"><kbd>Esc</kbd></td></tr>
+            <tr><td>Confirm a typed code or placement</td><td data-os="win"><kbd>Enter</kbd></td><td data-os="mac"><kbd>↩ Return</kbd></td></tr>
+            <tr><td>Cancel editing, or cancel the “Rescan an area” box</td><td data-os="win"><kbd>Esc</kbd></td><td data-os="mac"><kbd>Esc</kbd></td></tr>
+            <tr><td>Open this guide</td><td data-os="win"><kbd>?</kbd></td><td data-os="mac"><kbd>?</kbd></td></tr>
+            <tr><td>Zoom the page in / out</td><td data-os="win"><kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>Ctrl</kbd> + <kbd>−</kbd></td><td data-os="mac"><kbd>⌘ Cmd</kbd> + <kbd>+</kbd> / <kbd>⌘ Cmd</kbd> + <kbd>−</kbd></td></tr>
+            <tr><td>Reload after replacing the app file</td><td data-os="win"><kbd>F5</kbd> or <kbd>Ctrl</kbd> + <kbd>R</kbd></td><td data-os="mac"><kbd>⌘ Cmd</kbd> + <kbd>R</kbd></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Right-click any image on a website and choose <i>Copy image</i> to paste it here; that works the same on both systems.</p>
+    </div>
+  </section>
+
+  <!-- ================= FAQ ================= -->
+  <section class="doc" id="view-faq" role="tabpanel" aria-labelledby="tab-faq" hidden>
+    <div>
+      <h2>FAQ</h2>
+      <p class="intro">Answers about adding images, reading results, teams and placements, and running the app on Windows or Mac.</p>
+    </div>
+
+    <div class="faq-group">
+      <h3>Adding images</h3>
+      <div class="qa"><h4>What happens if I paste the same image twice?</h4><p>The second copy is skipped and a message tells you so.</p></div>
+      <div class="qa"><h4>Can I scan an image again?</h4><p>Yes. An image you've already scanned is marked “scanned before as Image 2” in the tray, but it isn't blocked, in case you want to re-scan it.</p></div>
+      <div class="qa"><h4>Can I keep adding images while a scan is running?</h4><p>Yes. New images wait in the tray for the next Scan.</p></div>
+      <div class="qa"><h4>Can images scan as soon as I add them, like before?</h4><p>Tick “Scan right away when images are added” under the tray. It's off by default and remembered.</p></div>
+      <div class="qa"><h4>How do I get pictures from an X / Twitter post?</h4><p>Copy the post's link (Share → Copy link, or copy it from the address bar) and paste it anywhere in the app, the code box included. All of the post's pictures go into the tray at full size, named after the account.</p></div>
+      <div class="qa"><h4>Which X link formats work?</h4><p>Any link to a post: x.com and twitter.com, mobile links, /i/status/ links, links ending in /photo/1 or with extra bits like ?s=46 after the number, links without https://, copied hyperlinks, and FxTwitter, VxTwitter or Nitter links. Short t.co links can't be opened; copy the post's own link instead.</p></div>
+      <div class="qa"><h4>Pasting an X link didn't bring any pictures. Why?</h4><p>The post may be deleted, from a protected account, age-restricted, or have only a video. If the lookup service is down, the app says so: then open the post, right-click a picture, choose <i>Copy image</i> and paste it.</p></div>
+      <div class="qa"><h4>How do I get a picture from another website into the tray?</h4><p>Right-click the picture, choose <i>Copy image</i>, then paste here. A link to a picture works too, if that site allows downloads. Or take a screenshot straight to the clipboard: <kbd>⊞ Win</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> on Windows, <kbd>⌃ Control</kbd>+<kbd>⇧ Shift</kbd>+<kbd>⌘ Cmd</kbd>+<kbd>4</kbd> on Mac. Full-size originals read best.</p></div>
+    </div>
+
+    <div class="faq-group">
+      <h3>Results</h3>
+      <div class="qa"><h4>Why does a deck say “First read as …”?</h4><p>The first reading had no deck on Decklog, and a closer look found one that does. The crop next to the code lets you check it.</p></div>
+      <div class="qa"><h4>A code is missing or “Not found on Decklog”. What now?</h4><p>Pick a look-alike match if one is offered, or click the code and type it. For an empty seat, type the code into its card. You can also use “Rescan an area” and drag a box around the code on the image.</p></div>
+      <div class="qa"><h4>Why are numbers like 13000 ignored?</h4><p>Those are card power values printed on the card art. Decklog codes are 5 or 6 letters and digits, never digits only, and never contain the letters O or I.</p></div>
+      <div class="qa"><h4>What does the JP / EN switch do?</h4><p>Japanese and English Decklog are separate sites with separate codes. Use EN for codes from decklog-en.bushiroad.com.</p></div>
+    </div>
+
+    <div class="faq-group">
+      <h3>Teams and placements</h3>
+      <div class="qa"><h4>How are teams and seeds worked out?</h4><p>In Teams of 3, each group of three codes side by side in a row is one team. Seed A is the left seat, B the middle, C the right.</p></div>
+      <div class="qa"><h4>Where do placements like “5th” come from?</h4><p>From the banners above each team. Ties are kept. A team whose banner can't be read is numbered from its neighbours and marked as a guess.</p></div>
+      <div class="qa"><h4>A placement is wrong. Can I fix it?</h4><p>Click the placement heading and type the number. Only that team changes.</p></div>
+    </div>
+
+    <div class="faq-group">
+      <h3>Windows, Mac and privacy</h3>
+      <div class="qa"><h4>Does it work on a Mac?</h4><p>Yes. Use the Mac app (“Vanguard Deck Scanner for Mac.zip”), or simply open the .html file in Safari, Chrome or Edge. Shortcuts use <kbd>⌘ Cmd</kbd> where Windows uses <kbd>Ctrl</kbd>, and <kbd>↩ Return</kbd> for <kbd>Enter</kbd>; the guide lists both side by side.</p></div>
+      <div class="qa hosted-only" hidden><h4>Can I put it on my phone's Home Screen?</h4><p>Yes. On iPhone or iPad, open this page in Safari, tap Share, then <i>Add to Home Screen</i>. On Android, open it in Chrome and choose <i>Add to Home screen</i> or <i>Install app</i> from the menu. It then opens full-screen like an app. Pick photos with <i>Choose images</i>, or paste pictures and links into the box at the top.</p></div>
+      <div class="qa hosted-only" hidden><h4>Where do I get the Mac app?</h4><p><a href="Vanguard%20Deck%20Scanner%20for%20Mac.zip" download>Download Vanguard Deck Scanner for Mac (zip)</a>. Unzip it, move the app to Applications and allow it once, as described below.</p></div>
+      <div class="qa"><h4>The Mac app says Apple can't check it for malware. Is it safe?</h4><p>That message appears for every app that isn't signed with a paid Apple developer certificate. Allow it once: on macOS 15 or newer, open System Settings → Privacy &amp; Security and click Open Anyway; on older versions, right-click the app, choose Open, then Open again. Inside the app is a short launcher script and this page, and you can read both (right-click the app → Show Package Contents). If you'd rather not approve anything, open the .html file instead: it runs inside your browser with no prompt.</p></div>
+      <div class="qa"><h4>Are my images uploaded anywhere?</h4><p>No. Text is read inside your browser. Only the deck codes go to Decklog, to fetch the deck pictures. For an X link, the post's number goes to FxTwitter, a free public service that lists the post's pictures, and the pictures download from X's own image server. The text reader itself (about 5 MB) downloads once from jsDelivr.</p></div>
+      <div class="qa"><h4>Does it need an internet connection?</h4><p>Yes: for the text reader on first use, and for the deck pictures from Decklog.</p></div>
+      <div class="qa"><h4>How do I update the app?</h4><p>Replace index.html with the new file and reload: <kbd>F5</kbd> on Windows, <kbd>⌘ Cmd</kbd>+<kbd>R</kbd> on Mac. Images on screen are cleared by a reload, so add them again.</p></div>
+    </div>
+  </section>
+</div>
+
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-labelledby="lbCode">
+  <div class="lb-bar">
+    <span class="lb-code" id="lbCode"></span>
+    <span class="lb-team" id="lbTeam" hidden></span>
+    <span class="lb-meta" id="lbMeta"></span>
+    <a class="btn ghost small" id="lbOpen" target="_blank" rel="noopener">Open on Decklog ↗</a>
+    <button class="btn ghost small" type="button" id="lbCopy">Copy link</button>
+    <button class="btn ghost small" type="button" id="lbClose">Close <kbd style="background:transparent;color:inherit;border-color:rgba(255,255,255,.3)">Esc</kbd></button>
+  </div>
+  <div class="lb-stage" id="lbStage">
+    <button class="lb-nav lb-prev" type="button" id="lbPrev" aria-label="Previous deck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div id="lbImg" style="display:contents"></div>
+    <button class="lb-nav lb-next" type="button" id="lbNext" aria-label="Next deck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= config ================= */
+const TESS_SRC = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+const CFG = {
+  psm: '11', regionPsm: '6', minConf: 45, maxEdits: 2, targetLong: 3000, maxScale: 3, regionMaxScale: 4, maxPixels: 16e6,
+  slotTextH: 55,    // text height (px) for close-up scans of empty grid seats
+  labelScale: 1.2,  // the "1st / 2nd" banner pass runs on an inverted, lightly scaled copy
+};
+// Close-up re-reads for codes that didn't match: single-word mode at two sizes, then single-line mode.
+const REREAD = [{ psm: '8', textH: 44 }, { psm: '8', textH: 88 }, { psm: '7', textH: 88 }];
+const SITES = {
+  jp: { label: 'Decklog JP', host: 'https://decklog.bushiroad.com' },
+  en: { label: 'Decklog EN', host: 'https://decklog-en.bushiroad.com' },
+};
+const SIZES = { s: ['340px', '300px'], m: ['520px', '380px'], l: ['820px', '620px'] }; // [solo column, team column]
+const FORMATS = { solo: 'Solo', trio: 'Teams of 3' };
+const SEEDS = ['A', 'B', 'C'];
+const SEED_WHERE = ['left', 'middle', 'right'];
+// Decklog codes are 5-6 characters and never use the letters O or I (checked against the live site).
+const CODE_RE = /^[A-HJ-NP-Z0-9]{5,6}$/;
+const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
+// The first pass reads with no character limit, so ordinary words ("Deck code:") stay separate words and
+// its confidence separates real Latin text from Japanese text. Close-up re-reads then use the Decklog alphabet.
+const ANY_CHAR = '';
+// Characters OCR tends to confuse. Matches found this way are offered for you to pick, never applied silently.
+const LOOKALIKES = {};
+for (const g of ['0DQ', '1LTJ7I', '5S', '8B', '2Z', '6G', 'UVY', '4A', 'MNH', 'EF', 'CG', 'PR', 'KX']) {
+  for (const ch of g) { (LOOKALIKES[ch] ||= new Set()); for (const o of g) if (o !== ch) LOOKALIKES[ch].add(o); }
+}
+
+/* ================= tiny helpers ================= */
+const $ = (sel, root = document) => root.querySelector(sel);
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'text') el.textContent = v;
+    else if (k === 'style') el.style.cssText = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid == null || kid === false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
+const ICON = {
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+};
+const icon = name => { const s = h('span', { style: 'display:contents' }); s.innerHTML = ICON[name]; return s.firstChild; };
+const store = {
+  get(k) { try { return localStorage.getItem('vds:' + k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem('vds:' + k, v); } catch { /* storage blocked: settings just won't persist */ } },
+};
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* fall through */ }
+  const ta = h('textarea', { style: 'position:fixed;top:0;left:0;opacity:0' }); ta.value = text;
+  document.body.append(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch { ok = false; }
+  ta.remove(); return ok;
+}
+// OCR text: O can only be a zero in a Decklog code.
+const normOcr = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/O/g, '0');
+// Typed text: also treat I as 1.
+const normCode = s => normOcr(s).replace(/I/g, '1');
+function median(xs) {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b), m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+const ordinal = n => n + ((n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'));
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+// Mac or not: decides which shortcut names the page shows (the Guide lists both side by side).
+const IS_MAC = /mac|iphone|ipad/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent || '');
+const MOD = IS_MAC ? '⌘' : 'Ctrl';
+// A phone or tablet without a mouse or trackpad.
+const IS_TOUCH = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches);
+const isTyping = el => !!(el && el.closest && el.closest('input, textarea, select, [contenteditable="true"]'));
+
+/* ================= state ================= */
+const state = {
+  site: store.get('site') === 'en' ? 'en' : 'jp',
+  size: SIZES[store.get('size')] ? store.get('size') : 'm',
+  format: store.get('format') === 'trio' ? 'trio' : 'solo', // remembered for the next image
+  auto: store.get('auto') === '1', // scan as soon as images are added, instead of waiting in the tray
+  tray: [],
+  view: 'scanner',
+  sources: [],
+};
+let nextId = 1;
+const siteOf = d => d.site || state.site;
+const snapUrl = (code, site) => `${SITES[site].host}/deckimages/${encodeURIComponent(code)}.png`;
+const viewUrl = (code, site) => `${SITES[site].host}/view/${encodeURIComponent(code)}`;
+
+/* ================= Decklog snapshot probe =================
+   Decklog serves a ready-made deck picture at /deckimages/<CODE>.png and answers 403 for unknown codes.
+   Loading it in an <img> needs no CORS, so the image load itself is the existence check. */
+const probes = new Map();
+function probe(code, site) {
+  const key = site + ':' + code;
+  let p = probes.get(key);
+  if (!p) {
+    p = new Promise(resolve => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.alt = `Decklog snapshot of deck ${code}`;
+      img.onload = () => resolve(img);
+      img.onerror = () => { probes.delete(key); resolve(null); };
+      img.src = snapUrl(code, site);
+    });
+    probes.set(key, p);
+  }
+  return p;
+}
+
+/* ================= OCR (Tesseract.js, runs in this browser) ================= */
+let workerP = null, sink = null, queue = Promise.resolve();
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = h('script', { src });
+    s.onload = resolve; s.onerror = () => reject(new Error('Could not download the text reader (' + new URL(src).host + ').'));
+    document.head.append(s);
+  });
+}
+function getWorker() {
+  if (!workerP) {
+    workerP = (async () => {
+      if (!window.Tesseract) await loadScript(TESS_SRC);
+      const w = await Tesseract.createWorker('eng', 1, { logger: m => { if (sink) sink(m); } });
+      await w.setParameters({ user_defined_dpi: '300' });
+      return w;
+    })();
+    workerP.catch(() => { workerP = null; });
+  }
+  return workerP;
+}
+function enqueue(job) { const run = queue.then(job, job); queue = run.catch(() => {}); return run; }
+
+const fitScale = (r, maxScale) => Math.min(maxScale, Math.max(1, CFG.targetLong / Math.max(r.w, r.h)));
+function clampRect(r, src) {
+  const x0 = Math.max(0, r.x), y0 = Math.max(0, r.y);
+  return { x: x0, y: y0, w: Math.max(1, Math.min(src.w, r.x + r.w) - x0), h: Math.max(1, Math.min(src.h, r.y + r.h) - y0) };
+}
+function prepare(img, r, scale, invert) {
+  scale = Math.max(0.5, Math.min(scale, Math.sqrt(CFG.maxPixels / (r.w * r.h))));
+  const cw = Math.max(1, Math.round(r.w * scale)), ch = Math.max(1, Math.round(r.h * scale));
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.fillStyle = '#fff'; g.fillRect(0, 0, cw, ch);
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, cw, ch);
+  const data = g.getImageData(0, 0, cw, ch), a = data.data;
+  for (let i = 0; i < a.length; i += 4) {
+    const y = (a[i] * 299 + a[i + 1] * 587 + a[i + 2] * 114) / 1000;
+    a[i] = a[i + 1] = a[i + 2] = invert ? 255 - y : y;
+  }
+  g.putImageData(data, 0, 0);
+  return { canvas: c, sx: cw / r.w, sy: ch / r.h };
+}
+function flattenWords(data) {
+  if (Array.isArray(data.words) && data.words.length) return data.words;
+  const out = [];
+  for (const b of data.blocks || []) for (const p of b.paragraphs || []) for (const l of p.lines || []) for (const w of l.words || []) out.push(w);
+  return out;
+}
+async function readWords(img, r, opts, onProgress) {
+  const worker = await getWorker();
+  const { canvas, sx, sy } = prepare(img, r, opts.scale, opts.invert);
+  await worker.setParameters({ tessedit_pageseg_mode: String(opts.psm), tessedit_char_whitelist: opts.chars || ANY_CHAR });
+  sink = onProgress || null;
+  try {
+    const { data } = await worker.recognize(canvas);
+    return flattenWords(data).map(w => ({
+      text: w.text, conf: w.confidence,
+      bbox: { x0: r.x + w.bbox.x0 / sx, y0: r.y + w.bbox.y0 / sy, x1: r.x + w.bbox.x1 / sx, y1: r.y + w.bbox.y1 / sy },
+    }));
+  } finally { sink = null; }
+}
+function editDistance(a, b) {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+const area = b => Math.max(0, b.x1 - b.x0) * Math.max(0, b.y1 - b.y0);
+const union = bs => ({ x0: Math.min(...bs.map(b => b.x0)), y0: Math.min(...bs.map(b => b.y0)), x1: Math.max(...bs.map(b => b.x1)), y1: Math.max(...bs.map(b => b.y1)) });
+function overlapRatio(a, b) {
+  const i = area({ x0: Math.max(a.x0, b.x0), y0: Math.max(a.y0, b.y0), x1: Math.min(a.x1, b.x1), y1: Math.min(a.y1, b.y1) });
+  return i / Math.max(1, Math.min(area(a), area(b)));
+}
+// Turn OCR words into code-shaped items. Fragments that sit side by side on one line
+// ("16HP" "4" "U") are joined, and only the longest code-shaped run is kept.
+function extractItems(words, minConf = CFG.minConf) {
+  const ws = [];
+  for (const w of words.map(w => ({ ...w, t: normOcr(w.text) })).filter(w => w.t).sort((a, b) => b.conf - a.conf)) {
+    if (!ws.some(k => overlapRatio(k.bbox, w.bbox) > 0.5)) ws.push(w);
+  }
+  ws.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+  const hw = w => w.bbox.y1 - w.bbox.y0;
+  const adjacent = (a, b) => {
+    const minH = Math.min(hw(a), hw(b)), maxH = Math.max(hw(a), hw(b));
+    const vOverlap = Math.min(a.bbox.y1, b.bbox.y1) - Math.max(a.bbox.y0, b.bbox.y0);
+    const gap = b.bbox.x0 - a.bbox.x1;
+    return vOverlap >= 0.5 * minH && maxH <= 2.2 * minH && gap >= -0.25 * minH && gap <= 0.45 * minH;
+  };
+  const runs = [];
+  for (const w of ws) {
+    const run = runs.find(r => adjacent(r[r.length - 1], w));
+    if (run) run.push(w); else runs.push([w]);
+  }
+  const items = [];
+  for (const run of runs) {
+    const spans = [];
+    for (let i = 0; i < run.length; i++) {
+      let t = '';
+      for (let j = i; j < run.length; j++) {
+        t += run[j].t; if (t.length > 7) break;
+        if (t.length < 5) continue;
+        const part = run.slice(i, j + 1);
+        spans.push({ i, j, text: t, conf: Math.min(...part.map(p => p.conf)), bbox: union(part.map(p => p.bbox)) });
+      }
+    }
+    // All-digit runs are card stats (power 13000, shield 10000) or years, never treated as codes.
+    const good = spans.filter(s => s.conf >= minConf && !/^\d+$/.test(s.text));
+    const inside = (a, b) => a !== b && b.i <= a.i && a.j <= b.j;
+    const codes = good.filter(s => CODE_RE.test(s.text));
+    const keepCodes = codes.filter(s => !codes.some(o => inside(s, o)));
+    // "Near" items (an I in them, or 7 characters) get a close-up re-read before we give up on them.
+    const near = good.filter(s => !CODE_RE.test(s.text) && !keepCodes.some(c => !(s.j < c.i || s.i > c.j)));
+    const keepNear = near.filter(s => !near.some(o => inside(s, o)));
+    items.push(...keepCodes, ...keepNear);
+  }
+  const seen = new Set();
+  return items.filter(it => !seen.has(it.text) && seen.add(it.text));
+}
+// Codes in one image share a font size. Text far smaller (card power, card text) or far taller is skipped.
+function dropOddSizes(items) {
+  const hs = items.filter(i => CODE_RE.test(i.text)).map(i => i.bbox.y1 - i.bbox.y0);
+  if (hs.length < 4) return items;
+  const med = median(hs);
+  return items.filter(i => { const hh = i.bbox.y1 - i.bbox.y0; return hh >= med * 0.55 && hh <= med * 3.2; });
+}
+async function rereadCodes(src, b) {
+  const hgt = Math.max(4, b.y1 - b.y0), px = hgt * 0.6, py = hgt * 0.35;
+  const r = clampRect({ x: b.x0 - px, y: b.y0 - py, w: b.x1 - b.x0 + 2 * px, h: hgt + 2 * py }, src);
+  const out = [];
+  for (const c of REREAD) {
+    const words = await readWords(src.img, r, { psm: c.psm, scale: Math.min(8, c.textH / hgt), chars: ALPHABET });
+    const t = normOcr(words.map(w => w.text).join(''));
+    if (t && !out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+/* ================= engine status (pre-warm so the first scan is quick) ================= */
+function setEngine(st, text) { const e = $('#engine'); e.dataset.state = st; $('#engineText').textContent = text; }
+function engineLogger(m) {
+  if (m.status === 'loading language traineddata') setEngine('loading', 'Downloading text reader (first time only, about 5 MB)…');
+  else if (m.status && m.status !== 'recognizing text') setEngine('loading', 'Starting text reader…');
+}
+function prewarm() {
+  if (!workerP) { setEngine('loading', 'Starting text reader…'); sink = engineLogger; }
+  getWorker().then(
+    () => { if (sink === engineLogger) sink = null; setEngine('ready', 'Text reader ready. Images are read on this computer.'); },
+    e => { if (sink === engineLogger) sink = null; setEngine('error', (e && e.message ? e.message : 'Text reader failed to load.') + ' You can still type codes above.'); },
+  );
+}
+
+/* ================= sources ================= */
+// Images you paste, drop or pick wait in the tray until you press Scan (unless "scan right away" is on).
+let pasteCount = 0;
+async function fileKey(blob) {
+  try {
+    const sum = new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()));
+    return [...sum.slice(0, 12)].map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch { return blob.size + ':' + blob.type; }
+}
+async function loadImage(blob) {
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  try {
+    await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url; });
+    if (!img.naturalWidth) throw new Error('empty image');
+    return { img, url };
+  } catch { URL.revokeObjectURL(url); return null; }
+}
+async function handleFiles(fileList) {
+  const all = [...(fileList || [])];
+  const files = all.filter(f => f && f.type && f.type.startsWith('image/'));
+  if (!files.length) { toast('That isn’t an image. Use PNG, JPG or WebP files.'); return; }
+  if (files.length < all.length) toast(`Skipped ${plural(all.length - files.length, 'file')} that aren’t images`);
+  goView('scanner'); // pasted while reading the guide: show the tray
+  let added = 0, dupes = 0;
+  for (const f of files) {
+    const key = await fileKey(f);
+    if (state.tray.some(t => t.key === key)) { dupes++; continue; }
+    const loaded = await loadImage(f);
+    if (!loaded) { toast(`Couldn’t open ${f.name || 'that image'}.`); continue; }
+    // Clipboard images arrive as "image.png"; number them instead.
+    const name = !f.name || /^image\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name) ? `Pasted image ${++pasteCount}` : f.name;
+    const before = state.sources.find(s => s.key === key);
+    state.tray.push({ id: nextId++, key, name, ...loaded, w: loaded.img.naturalWidth, h: loaded.img.naturalHeight, scannedAs: before ? imageTitle(before) : null });
+    added++;
+  }
+  if (dupes) toast(dupes === 1 && !added ? 'That image is already waiting to be scanned' : `Skipped ${plural(dupes, 'duplicate image')}`);
+  if (!added) return;
+  if (state.auto) { scanTray(); return; }
+  renderTray(added);
+  if (!dupes) toast(`${plural(state.tray.length, 'image')} ready. Paste more, or press Scan.`);
+}
+function renderTray(flashLast = 0) {
+  const n = state.tray.length;
+  $('#tray').hidden = !n;
+  $('#trayItems').replaceChildren(...state.tray.map((t, i) => h('figure', { class: 'tray-item' + (i >= n - flashLast ? ' new' : '') },
+    h('img', { src: t.url, alt: t.name }),
+    h('span', { class: 'tray-num' }, String(i + 1)),
+    h('div', { class: 'tray-btns' },
+      i > 0 ? h('button', { type: 'button', title: 'Move earlier', 'aria-label': `Move ${t.name} earlier`, onclick: () => moveInTray(t.id, -1) }, '←') : null,
+      i < n - 1 ? h('button', { type: 'button', title: 'Move later', 'aria-label': `Move ${t.name} later`, onclick: () => moveInTray(t.id, 1) }, '→') : null,
+      h('button', { type: 'button', title: 'Remove', 'aria-label': `Remove ${t.name}`, onclick: () => removeFromTray(t.id) }, icon('x'))),
+    h('figcaption', { title: t.name }, h('b', null, t.name), ` · ${t.w}×${t.h}`, t.scannedAs ? h('span', { class: 'warn' }, ` · scanned before as ${t.scannedAs}`) : null))));
+  $('#trayScan').textContent = `Scan ${plural(n, 'image')}`;
+  $('#pickBtn').className = n ? 'btn ghost' : 'btn';
+  syncTrayFmt();
+  updateChrome();
+}
+function syncTrayFmt() {
+  $('#trayFmt').querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.fmt === state.format)));
+}
+function moveInTray(id, dir) {
+  const i = state.tray.findIndex(t => t.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= state.tray.length) return;
+  [state.tray[i], state.tray[j]] = [state.tray[j], state.tray[i]];
+  renderTray();
+}
+function removeFromTray(id) {
+  const t = state.tray.find(x => x.id === id);
+  if (t) URL.revokeObjectURL(t.url);
+  state.tray = state.tray.filter(x => x.id !== id);
+  renderTray();
+}
+function clearTray() {
+  state.tray.forEach(t => URL.revokeObjectURL(t.url));
+  state.tray = [];
+  renderTray();
+}
+// Scan everything in the tray, in tray order, with the chosen event format.
+function scanTray() {
+  const items = state.tray.splice(0);
+  renderTray();
+  items.forEach((item, i) => addImageSource(item, i === 0));
+}
+
+function addImageSource(item, scrollTo) {
+  const { img, url, name, key } = item;
+  const src = {
+    id: nextId++, kind: 'image', name: name || 'Pasted image', img, url, key,
+    w: img.naturalWidth, h: img.naturalHeight, decks: [], busy: false, phase: null, error: null,
+    selecting: false, sel: null, scans: 0, collapsed: false,
+    format: state.format, labels: null, labelState: null, typedRanks: new Map(), tried: [],
+    grid: null, teams: [], teamEls: new Map(), slotEls: new Map(),
+  };
+  state.sources.push(src);
+  buildSourceShell(src);
+  updateChrome();
+  if (scrollTo) requestAnimationFrame(() => src.el.section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  scan(src, { x: 0, y: 0, w: src.w, h: src.h }, false);
+}
+
+function manualSource() {
+  let src = state.sources.find(s => s.kind === 'manual');
+  if (!src) {
+    src = { id: nextId++, kind: 'manual', name: 'Added by code', decks: [], busy: false, error: null, teams: [], format: 'solo' };
+    state.sources.push(src);
+    buildSourceShell(src);
+  }
+  return src;
+}
+
+async function scan(src, rect, isRegion) {
+  src.busy = true; src.error = null; src.phase = isRegion ? 'Reading that area…' : 'Reading the image…';
+  setProgress(src, 'Waiting for the text reader…', null);
+  layout(src);
+  try {
+    const onProgress = m => {
+      if (m.status === 'recognizing text') setProgress(src, 'Reading text…', m.progress);
+      else if (m.status === 'loading language traineddata') setProgress(src, 'Downloading text reader (first time only)…', null);
+      else if (m.status) setProgress(src, 'Starting text reader…', null);
+    };
+    const scale = fitScale(rect, isRegion ? CFG.regionMaxScale : CFG.maxScale);
+    let words = await enqueue(() => readWords(src.img, rect, { psm: isRegion ? CFG.regionPsm : CFG.psm, scale }, onProgress));
+    let items = extractItems(words);
+    if (isRegion && !items.length) {
+      words = await enqueue(() => readWords(src.img, rect, { psm: CFG.psm, scale }, onProgress));
+      items = extractItems(words);
+    }
+    if (!isRegion) { src.lastWords = words; items = dropOddSizes(items); }
+    src.scans++;
+    setProgress(src, null);
+    src.phase = 'Checking codes on Decklog…'; layout(src);
+    const before = src.decks.length;
+    await Promise.all(items.map(it => resolveItem(src, it)));
+    if (!isRegion) {
+      src.phase = 'Checking empty seats…'; layout(src);
+      await fillGaps(src);
+      if (src.format === 'trio') { src.phase = 'Looking for placement labels…'; layout(src); await findLabels(src); }
+    }
+    const added = src.decks.length - before;
+    if (isRegion) toast(added ? `Found ${plural(added, 'new code')} in that area` : (items.length ? 'Nothing new in that area' : 'No code found in that area. Try a slightly bigger box, or type it in.'));
+  } catch (e) {
+    src.error = (e && e.message) ? e.message : String(e);
+  } finally {
+    src.busy = false; src.phase = null; setProgress(src, null); layout(src);
+  }
+}
+
+function addDeck(src, it) {
+  if (src.decks.some(d => d.code === it.text || d.read === it.text)) return null;
+  const deck = {
+    id: nextId++, source: src, code: it.text, read: it.text, conf: it.conf, bbox: it.bbox || null,
+    site: it.site || null, status: 'checking', note: null, fixedFrom: null, readings: [it.text],
+    img: null, alts: null, token: 0, built: null, el: null, removed: false, team: null, seed: null, num: null,
+  };
+  src.decks.push(deck);
+  layout(src);
+  return deck;
+}
+
+// Resolves to true (found), false (missing; with hold=true the card stays "checking"), or null (superseded).
+async function checkDeck(d, hold) {
+  const token = ++d.token;
+  d.status = 'checking'; d.img = null; d.alts = null;
+  layout(d.source);
+  const img = await probe(d.code, siteOf(d));
+  if (token !== d.token || d.removed) return null;
+  if (!img && hold) return false;
+  d.img = img; d.status = img ? 'found' : 'missing'; d.note = null;
+  layout(d.source);
+  return !!img;
+}
+
+// One OCR item -> a deck. Misses get a close-up re-read; a new reading is accepted only if Decklog has it.
+async function resolveItem(src, it) {
+  let d = null;
+  if (CODE_RE.test(it.text)) {
+    d = addDeck(src, it);
+    if (!d) return;
+    if ((await checkDeck(d, true)) !== false) return;
+    d.note = 'Taking a closer look…'; layout(src);
+  }
+  const token = d ? d.token : 0;
+  const gone = () => d && (d.removed || d.token !== token);
+  let readings = [];
+  try { readings = await enqueue(() => rereadCodes(src, it.bbox)); } catch { /* keep the first reading */ }
+  if (gone()) return;
+  // A close-up reading only counts if it stays close to what the first pass saw.
+  const all = [it.text, ...readings.filter(r => r !== it.text && editDistance(r, it.text) <= CFG.maxEdits)];
+  for (const code of all) {
+    if (!CODE_RE.test(code) || (d && code === d.code) || src.decks.some(x => x !== d && x.code === code)) continue;
+    const img = await probe(code, d ? siteOf(d) : state.site);
+    if (gone()) return;
+    if (!img) continue;
+    if (!d) { d = addDeck(src, { ...it, text: code }); if (!d) return; d.read = it.text; }
+    d.fixedFrom = it.text; d.code = code; d.readings = all;
+    await checkDeck(d);
+    return;
+  }
+  // Nothing matched. Keep it as "not found" only if it plausibly was a code:
+  // code-shaped, or 5-7 characters with a digit (skips words like a venue name).
+  if (!d) {
+    const shaped = all.find(r => r.length >= 5 && r.length <= 7 && /\d/.test(r));
+    if (!shaped) return;
+    d = addDeck(src, { ...it, text: shaped });
+    if (!d) return;
+    d.read = it.text;
+  }
+  d.readings = all; d.note = null; d.status = 'missing'; d.img = null;
+  layout(src);
+  tryLookalikes(d);
+}
+
+function removeDeck(d) {
+  d.removed = true; d.token++;
+  const src = d.source;
+  src.decks = src.decks.filter(x => x !== d);
+  if (d.el) d.el.remove();
+  if (src.kind === 'manual' && !src.decks.length) return removeSource(src);
+  layout(src);
+}
+function removeSource(src) {
+  src.decks.forEach(d => { d.removed = true; d.token++; });
+  if (src.url) URL.revokeObjectURL(src.url);
+  src.el.section.remove();
+  state.sources = state.sources.filter(s => s !== src);
+  state.sources.filter(s => s.kind === 'image').forEach(s => layout(s)); // renumber "Image N"
+  updateChrome(); updateSummary();
+}
+
+/* ================= layout analysis: rows, columns, seats, teams ================= */
+const cxOf = d => (d.bbox.x0 + d.bbox.x1) / 2;
+const cyOf = d => (d.bbox.y0 + d.bbox.y1) / 2;
+const hOf = d => d.bbox.y1 - d.bbox.y0;
+function readingRows(decks) {
+  const boxed = decks.filter(d => d.bbox).sort((a, b) => cyOf(a) - cyOf(b));
+  const rows = [];
+  for (const d of boxed) {
+    const row = rows[rows.length - 1];
+    if (row && Math.abs(cyOf(d) - row.cy) < Math.max(hOf(d), row.h) * 0.6) {
+      row.items.push(d); row.cy = row.items.reduce((s, x) => s + cyOf(x), 0) / row.items.length;
+    } else rows.push({ cy: cyOf(d), h: hOf(d), items: [d] });
+  }
+  rows.forEach(r => r.items.sort((a, b) => a.bbox.x0 - b.bbox.x0));
+  return rows;
+}
+const readingOrder = decks => readingRows(decks).flatMap(r => r.items).concat(decks.filter(d => !d.bbox));
+const nearestIndex = (xs, v) => xs.reduce((best, x, i) => (Math.abs(x - v) < Math.abs(xs[best] - v) ? i : best), 0);
+
+// Codes in results graphics sit on a grid. Columns are shared across rows, so a seat whose code
+// wasn't read still shows up as an empty slot between the others.
+function analyzeGrid(src) {
+  src.decks.forEach(d => { d.slot = null; d.hidden = false; });
+  // Confirmed (or still checking) codes define the grid; unconfirmed reads only join a seat they sit on.
+  const boxedAll = src.decks.filter(d => d.bbox);
+  let anchors = boxedAll.filter(d => d.status !== 'missing');
+  if (!anchors.length) anchors = boxedAll;
+  // A "deck" far smaller or taller than the rest is card text that happened to match a code: hide it.
+  if (anchors.length >= 4) {
+    const mh = median(anchors.map(hOf));
+    const odd = anchors.filter(d => hOf(d) < mh * 0.55 || hOf(d) > mh * 3.2);
+    odd.forEach(d => { d.hidden = true; });
+    anchors = anchors.filter(d => !odd.includes(d));
+  }
+  let rows = readingRows(anchors);
+  // In a grid of rows of three or more, a confirmed code alone on its own row is not a seat.
+  if (rows.length > 1 && Math.max(...rows.map(r => r.items.length)) >= 3) rows = rows.filter(r => r.items.length > 1);
+  anchors = rows.flatMap(r => r.items);
+  if (!rows.length) return null;
+  const pitch = median(rows.flatMap(r => r.items.slice(1).map((d, i) => cxOf(d) - cxOf(r.items[i]))).filter(g => g > 0));
+  const w = median(anchors.map(d => d.bbox.x1 - d.bbox.x0)), h = median(anchors.map(hOf));
+  const cols = [];
+  if (pitch) {
+    for (const x of anchors.map(cxOf).sort((a, b) => a - b)) {
+      const c = cols[cols.length - 1];
+      if (c && x - c.x <= pitch * 0.35) { c.xs.push(x); c.x = c.xs.reduce((s, v) => s + v, 0) / c.xs.length; }
+      else cols.push({ xs: [x], x });
+    }
+  }
+  const colOf = d => nearestIndex(cols.map(c => c.x), cxOf(d));
+  const offGrid = [];
+  for (const d of boxedAll.filter(d => !anchors.includes(d) && !d.hidden)) {
+    const row = rows.find(r => Math.abs(cyOf(d) - r.cy) < Math.max(hOf(d), r.h) * 0.6);
+    if (!row || (cols.length && Math.abs(cols[colOf(d)].x - cxOf(d)) > (pitch || w) * 0.35)) { offGrid.push(d); continue; }
+    row.items.push(d); row.items.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+  }
+  rows.forEach((r, ri) => r.items.forEach((d, i) => { d.slot = { r: ri, c: cols.length ? colOf(d) : i }; }));
+  const placed = rows.flatMap(r => r.items);
+  const filled = new Set(placed.map(d => d.slot.r + ':' + d.slot.c));
+  const regular = cols.length >= 2 && filled.size >= 0.6 * rows.length * cols.length;
+  // In a clear grid, an unconfirmed read that sits on no seat is stray text (a name, card text, a title).
+  const confirmed = anchors.filter(d => d.status === 'found').length;
+  offGrid.forEach(d => { d.hidden = regular && confirmed >= 4 && d.status !== 'found'; });
+  return { rows, cols, pitch, w, h, filled, regular };
+}
+// Seats with no code: inside a regular grid, in a column that has codes in other rows.
+function emptySlots(g) {
+  if (!g || !g.regular || g.rows.length < 2) return [];
+  const out = [];
+  g.rows.forEach((row, r) => g.cols.forEach((col, c) => {
+    if (g.filled.has(r + ':' + c)) return;
+    if (!g.rows.some((other, i) => i !== r && other.items.some(d => d.slot.c === c))) return;
+    out.push({ r, c, cx: col.x, cy: row.cy });
+  }));
+  return out;
+}
+const slotBox = (g, s) => ({ x0: s.cx - g.w / 2, x1: s.cx + g.w / 2, y0: s.cy - g.h / 2, y1: s.cy + g.h / 2 });
+
+// Close-up reads of one seat, tight single-line crops first. OCR results swing with tiny changes in crop
+// and zoom, so a seat gets several tries. A reading is checked on Decklog as soon as two reads agree on it.
+const SEAT_READS = [
+  { box: 'tight', psm: '7', textH: 44, chars: ALPHABET },
+  { box: 'snug', psm: '8', textH: 44, chars: ALPHABET },
+  { box: 'tight', psm: '7', textH: 66 },
+  { box: 'snug', psm: '8', textH: 88, chars: ALPHABET },
+  { box: 'tight', psm: '6', textH: 44 },
+  { box: 'snug', psm: '7', textH: 88, chars: ALPHABET },
+  { box: 'wide', psm: '11', textH: 55 },
+];
+async function readSeat(src, g, s, existing) {
+  const site = existing ? siteOf(existing) : state.site;
+  const inSeat = b => Math.abs((b.x0 + b.x1) / 2 - s.cx) < g.w * 0.6 && Math.abs((b.y0 + b.y1) / 2 - s.cy) < g.h * 0.9;
+  const boxes = {
+    snug: clampRect({ x: s.cx - g.w / 2 - g.h * 0.6, y: s.cy - g.h * 0.85, w: g.w + g.h * 1.2, h: g.h * 1.7 }, src),
+    tight: clampRect({ x: s.cx - g.w * 0.75, y: s.cy - g.h * 0.9, w: g.w * 1.5, h: g.h * 1.8 }, src),
+    wide: clampRect({ x: s.cx - g.w * 0.85, y: s.cy - g.h * 1.3, w: g.w * 1.7, h: g.h * 2.6 }, src),
+  };
+  const seen = new Map(); // reading -> { n: how many reads gave it, bbox }
+  const probed = new Set(existing ? [existing.code] : []);
+  const gone = () => existing && existing.removed;
+  const note = words => {
+    const ws = words.filter(w => inSeat(w.bbox)).sort((a, b) => a.bbox.x0 - b.bbox.x0);
+    const texts = extractItems(ws, 0);
+    const joined = normOcr(ws.map(w => w.text).join(''));
+    if (ws.length && joined.length >= 5 && joined.length <= 7) texts.push({ text: joined, bbox: union(ws.map(w => w.bbox)) });
+    const once = new Set();
+    for (const t of texts) {
+      if (/^\d+$/.test(t.text) || once.has(t.text)) continue;
+      once.add(t.text);
+      const e = seen.get(t.text) || { n: 0, bbox: t.bbox };
+      e.n++; seen.set(t.text, e);
+    }
+  };
+  const tryCodes = async minVotes => {
+    const order = [...seen].filter(([c, e]) => e.n >= minVotes && CODE_RE.test(c) && !probed.has(c) && !src.decks.some(d => d !== existing && d.code === c))
+      .sort((a, b) => b[1].n - a[1].n);
+    for (const [c, e] of order) { probed.add(c); if (await probe(c, site)) return { code: c, bbox: e.bbox }; }
+    return null;
+  };
+  if (existing) (existing.readings || [existing.read]).forEach(r => seen.set(r, { n: 1, bbox: existing.bbox }));
+  else note(src.lastWords || []); // the first pass may have seen it at low confidence
+  let hit = null;
+  for (const a of SEAT_READS) {
+    if (gone()) return;
+    try { note(await enqueue(() => readWords(src.img, boxes[a.box], { psm: a.psm, scale: Math.max(1.5, Math.min(5, a.textH / g.h)), chars: a.chars }))); }
+    catch { continue; }
+    if ((hit = await tryCodes(2))) break;
+  }
+  if (!hit) hit = await tryCodes(1);
+  if (gone()) return;
+  const readings = [...seen.keys()];
+  if (hit) {
+    if (existing) { existing.fixedFrom = existing.fixedFrom || existing.read; existing.code = hit.code; existing.readings = readings; await checkDeck(existing); }
+    // The seat's own box, not the OCR box: fragments read together can come back much taller than the code.
+    else { const d = addDeck(src, { text: hit.code, conf: 0, bbox: slotBox(g, s) }); if (d) { d.readings = readings; await checkDeck(d); } }
+    return;
+  }
+  if (existing) { existing.readings = readings; tryLookalikes(existing); return; }
+  // Nothing confirmed: keep the best reading as "not found", with look-alike matches to pick from.
+  const shaped = readings.find(r => CODE_RE.test(r)) || readings.find(r => r.length >= 5 && r.length <= 7);
+  if (!shaped) return;
+  const d = addDeck(src, { text: shaped, conf: 0, bbox: slotBox(g, s) });
+  if (!d) return;
+  d.readings = readings; d.status = 'missing'; layout(src);
+  tryLookalikes(d);
+}
+// Every seat with no confirmed code gets a close-up read: empty seats, and seats holding a code Decklog didn't have.
+async function fillGaps(src) {
+  const g = analyzeGrid(src);
+  if (!g || !g.regular || g.rows.length < 2) return;
+  const seats = emptySlots(g).map(s => ({ s, existing: null }));
+  g.rows.forEach(row => row.items.forEach(d => {
+    if (d.status === 'missing' && d.slot && g.cols[d.slot.c]) seats.push({ s: { cx: g.cols[d.slot.c].x, cy: row.cy }, existing: d });
+  }));
+  for (const { s, existing } of seats) {
+    if (src.tried.some(t => Math.abs(t.cx - s.cx) < g.w / 2 && Math.abs(t.cy - s.cy) < g.h)) continue;
+    src.tried.push({ cx: s.cx, cy: s.cy });
+    await readSeat(src, g, s, existing);
+  }
+}
+
+// Team events: each group of three columns in a row is one team, seats A/B/C from left to right.
+// If the columns don't come in threes, fall back to chunking each row into threes.
+function buildTeams(g) {
+  if (!g) return [];
+  const teams = [], nC = g.cols.length, aligned = nC >= 3 && nC % 3 === 0;
+  g.rows.forEach((row, r) => {
+    if (aligned) {
+      for (let gi = 0; gi < nC / 3; gi++) {
+        const mine = row.items.filter(d => Math.floor(d.slot.c / 3) === gi);
+        if (!mine.length) continue;
+        const slots = [0, 1, 2].map(k => {
+          const c = gi * 3 + k;
+          return { cx: g.cols[c].x, cy: row.cy, deck: mine.find(d => d.slot.c === c) || null };
+        });
+        teams.push({ key: `r${r}g${gi}`, slots, extras: mine.filter(d => !slots.some(s => s.deck === d)), aligned: true });
+      }
+    } else {
+      for (let i = 0; i < row.items.length; i += 3) {
+        const chunk = row.items.slice(i, i + 3);
+        teams.push({ key: `r${r}i${i}`, slots: chunk.map(d => ({ cx: cxOf(d), cy: cyOf(d), deck: d })), extras: [], aligned: false });
+      }
+    }
+  });
+  teams.forEach((t, i) => {
+    t.index = i;
+    t.slots.forEach((s, k) => { if (s.deck) { s.deck.team = t; s.deck.seed = k; } });
+    t.extras.forEach(d => { d.team = t; d.seed = d.slot.c % 3; });
+  });
+  return teams;
+}
+
+// "1st", "2nd", "8th" banners. Ordinals whose suffix doesn't fit the number ("2st") are ignored.
+function parseLabels(words) {
+  const out = [];
+  for (const w of words) {
+    const t = String(w.text || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+    const m = /^([0-9ILSO]{1,3})(ST|ND|RD|TH)$/.exec(t);
+    if (!m) continue;
+    const n = parseInt(m[1].replace(/[IL]/g, '1').replace(/S/g, '5').replace(/O/g, '0'), 10);
+    if (!n || n > 999 || ordinal(n).slice(-2).toUpperCase() !== m[2]) continue;
+    if (out.some(o => overlapRatio(o.bbox, w.bbox) > 0.5)) continue;
+    out.push({ n, bbox: w.bbox });
+  }
+  return out;
+}
+const teamCx = t => t.slots.reduce((s, x) => s + x.cx, 0) / t.slots.length;
+const centerOf = b => ({ x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 });
+// Each label belongs to the nearest team below it whose seats span it.
+function matchLabels(labels, teams, g) {
+  const matched = new Map();
+  for (const lb of labels) {
+    const c = centerOf(lb.bbox), pad = (g.pitch || g.w) * 0.6;
+    let best = null, bestDy = Infinity;
+    for (const t of teams) {
+      const xs = t.slots.map(s => s.cx);
+      if (c.x < Math.min(...xs) - pad || c.x > Math.max(...xs) + pad) continue;
+      const dy = t.slots[0].cy - c.y;
+      if (dy > 0 && dy < bestDy) { bestDy = dy; best = t; }
+    }
+    if (best && !matched.has(best)) matched.set(best, lb);
+  }
+  return matched;
+}
+// Where a placement banner sits relative to its team, in units of the code height so it carries over
+// between images of the same series (and between sessions).
+function templateFrom(matched, g) {
+  // Use the tightest sensible box: a banner read together with nearby text comes back too big,
+  // and a misread can come back as a sliver one pixel tall.
+  const ok = [...matched].filter(([, lb]) => {
+    const w = lb.bbox.x1 - lb.bbox.x0, hh = lb.bbox.y1 - lb.bbox.y0;
+    return hh >= g.h * 0.35 && hh <= g.h * 1.6 && w >= g.h * 0.8 && w <= g.h * 6;
+  });
+  if (!ok.length) return null;
+  const [t, lb] = ok.sort((a, b) => area(a[1].bbox) - area(b[1].bbox))[0];
+  return {
+    dx: (centerOf(lb.bbox).x - teamCx(t)) / g.h, dy: (centerOf(lb.bbox).y - t.slots[0].cy) / g.h,
+    lw: Math.max(12, lb.bbox.x1 - lb.bbox.x0) / g.h, lh: Math.max(6, lb.bbox.y1 - lb.bbox.y0) / g.h,
+  };
+}
+function knownTemplate(src) {
+  const other = state.sources.filter(o => o !== src && o.labelTemplate);
+  const same = other.find(o => o.w === src.w && o.h === src.h) || other[0];
+  if (same) return same.labelTemplate;
+  // A saved position from an earlier session, if it looks like a real banner.
+  try {
+    const t = JSON.parse(store.get('labelTpl') || 'null');
+    return t && Number.isFinite(t.dy) && t.lh >= 0.35 && t.lh <= 1.6 && t.lw >= 0.8 && t.lw <= 6 ? t : null;
+  } catch { return null; }
+}
+// Small text is fickle: try a few sizes and modes, stop at the first reading that is a valid ordinal.
+async function readBanner(src, r, lh, tries) {
+  for (const [textH, invert, psm] of tries) {
+    const found = parseLabels(await enqueue(() => readWords(src.img, r, { psm, scale: Math.min(6, textH / lh), invert })));
+    if (found.length) return found[0];
+  }
+  return null;
+}
+const BANNER_TRIES = [[40, true, '7'], [40, false, '7'], [30, true, '7'], [52, true, '7'], [40, true, '8'], [30, false, '8']];
+// Read one team's banner several ways and take the number the reads agree on ("9th" is sometimes seen
+// as "8th"). The whole-image reading counts a little less than a close-up one, so close-ups win a tie.
+async function voteBanner(src, r, lh, prior) {
+  const votes = new Map();
+  let box = prior ? prior.bbox : null;
+  if (prior) votes.set(prior.n, 0.9);
+  for (const [textH, invert, psm] of BANNER_TRIES) {
+    const found = parseLabels(await enqueue(() => readWords(src.img, r, { psm, scale: Math.min(6, textH / lh), invert })));
+    if (found.length) { votes.set(found[0].n, (votes.get(found[0].n) || 0) + 1); box = box || found[0].bbox; }
+    if (Math.max(0, ...votes.values()) >= 1.9) break;
+  }
+  if (!votes.size) return null;
+  return { n: [...votes].sort((a, b) => b[1] - a[1])[0][0], bbox: box };
+}
+async function findLabels(src) {
+  if (src.labelState === 'running') return;
+  src.labelState = 'running'; layout(src);
+  try {
+    // Banners are usually light text on a coloured band, so read an inverted copy of the whole image (once).
+    if (!src.labelWords) src.labelWords = await enqueue(() => readWords(src.img, { x: 0, y: 0, w: src.w, h: src.h }, { psm: '11', scale: CFG.labelScale, invert: true }));
+    let labels = parseLabels([...(src.lastWords || []), ...src.labelWords]);
+    const g = analyzeGrid(src), teams = buildTeams(g);
+    if (g && teams.length) {
+      let matched = matchLabels(labels, teams, g);
+      let tpl = (matched.size && templateFrom(matched, g)) || knownTemplate(src);
+      // No banner found and no known position: sweep small crops down the band above the first team.
+      if (!tpl) {
+        const t = teams[0], cx = teamCx(t), lh = g.h * 0.6, lw = g.h * 1.4;
+        const above = g.rows.filter(r => r.cy < t.slots[0].cy - g.h).map(r => r.cy + g.h);
+        for (let cy = (above.length ? Math.max(...above) : 0) + lh * 1.4; cy < t.slots[0].cy - 2 * g.h; cy += g.h * 0.8) {
+          const found = await readBanner(src, clampRect({ x: cx - lw * 2.2, y: cy - lh * 1.4, w: lw * 4.4, h: lh * 2.8 }, src), lh, BANNER_TRIES.slice(0, 1));
+          if (found) { labels.push(found); matched = matchLabels(labels, teams, g); if (matched.size) tpl = templateFrom(matched, g); break; }
+        }
+      }
+      // Banners sit in the same place relative to every team: read each one close up and vote (the
+      // whole-image reading counts as one vote). A position borrowed from another image can be a few pixels
+      // off, so once this image's own banners are read, its own position gets one more round on the rest.
+      if (tpl) {
+        const decided = new Map();
+        for (let round = 0; tpl && round < 2; round++) {
+          const lw = tpl.lw * g.h, lh = tpl.lh * g.h;
+          for (const t of teams.filter(t => !decided.has(t))) {
+            const cx = teamCx(t) + tpl.dx * g.h, cy = t.slots[0].cy + tpl.dy * g.h;
+            const lb = await voteBanner(src, clampRect({ x: cx - lw * 1.6, y: cy - lh * 1.4, w: lw * 3.2, h: lh * 2.8 }, src), lh, matched.get(t));
+            if (lb) decided.set(t, lb);
+          }
+          const own = decided.size ? templateFrom(decided, g) : null;
+          if (own) { src.labelTemplate = own; store.set('labelTpl', JSON.stringify(own)); }
+          if (decided.size === teams.length || !own || JSON.stringify(own) === JSON.stringify(tpl)) break;
+          tpl = own;
+        }
+        labels = [...decided.values()];
+      }
+    }
+    src.labels = labels;
+  } catch { src.labels = src.labels || []; }
+  src.labelState = 'done';
+  layout(src);
+  // Another image in the batch that found no banners can now use this one's banner position.
+  if (src.labelTemplate) for (const o of state.sources) {
+    if (o !== src && isTrio(o) && o.labelState === 'done' && !o.labelTemplate && !o.labelRetried) { o.labelRetried = true; findLabels(o); }
+  }
+}
+// Placements come from banners read in the image or typed by you; ties are kept as they are.
+// A team without one is numbered from its nearest neighbour in reading order, and marked as a guess.
+function assignRanks(src, teams, g) {
+  const labelled = matchLabels(src.labels || [], teams, g);
+  const anchors = new Map();
+  teams.forEach(t => {
+    const typed = src.typedRanks.get(t.key);
+    if (typed) anchors.set(t.index, { n: typed, from: 'typed' });
+    else if (labelled.has(t)) anchors.set(t.index, { n: labelled.get(t).n, from: 'label' });
+  });
+  teams.forEach(t => {
+    const a = anchors.get(t.index);
+    if (a) { t.rank = a.n; t.rankFrom = a.from; return; }
+    let prev = null, next = null;
+    for (let i = t.index - 1; i >= 0; i--) if (anchors.has(i)) { prev = i; break; }
+    for (let i = t.index + 1; i < teams.length; i++) if (anchors.has(i)) { next = i; break; }
+    t.rank = prev != null ? anchors.get(prev).n + (t.index - prev)
+      : next != null ? Math.max(1, anchors.get(next).n - (next - t.index)) : null;
+    t.rankFrom = t.rank ? 'order' : null;
+  });
+}
+const teamName = t => (t.rank ? ordinal(t.rank) : `Team ${t.index + 1}`);
+const teamShort = t => (t.rank ? ordinal(t.rank) : `T${t.index + 1}`);
+const tagFor = d => (d.team ? `${teamName(d.team)} · Seed ${SEEDS[d.seed]}` : null);
+const isTrio = src => src.kind === 'image' && src.format === 'trio';
+
+/* ================= rendering ================= */
+const imageTitle = src => (src.kind === 'manual' ? 'Added by code' : `Image ${state.sources.filter(s => s.kind === 'image').indexOf(src) + 1}`);
+
+function buildSourceShell(src) {
+  const el = {};
+  el.title = h('h2', null, imageTitle(src));
+  el.fname = src.kind === 'image' ? h('span', { class: 'fname', text: src.name }) : null;
+  el.stats = h('span', { class: 'stats' });
+  el.acts = h('div', { class: 'acts' });
+  if (src.kind === 'image') {
+    el.fmt = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Event format for this image' },
+      Object.entries(FORMATS).map(([k, label]) => h('button', {
+        type: 'button', role: 'radio', 'data-fmt': k, 'aria-checked': String(src.format === k),
+        title: k === 'trio' ? 'Group decks into teams of three, seats A, B, C from left to right' : 'List decks one by one',
+        onclick: () => setFormat(src, k),
+      }, label)));
+    el.hideBtn = h('button', { class: 'btn ghost small', type: 'button', onclick: () => { src.collapsed = !src.collapsed; layout(src); } }, 'Hide image');
+    el.areaBtn = h('button', { class: 'btn ghost small', type: 'button', onclick: () => toggleSelect(src) }, 'Rescan an area');
+    el.acts.append(el.fmt, el.hideBtn, el.areaBtn);
+  }
+  el.acts.append(h('button', { class: 'btn ghost small', type: 'button', onclick: () => removeSource(src) }, 'Remove'));
+  el.head = h('div', { class: 'source-head' }, el.title, el.fname, el.stats, el.acts);
+  el.error = h('div', { class: 'source-error', hidden: true });
+
+  el.grid = h('div', { class: 'grid' });
+  el.teams = h('div', { class: 'teams' });
+  el.chips = h('div', { class: 'chips' });
+  el.unmatched = h('div', { class: 'unmatched', hidden: true },
+    h('h3', null, 'Not found on Decklog'),
+    h('p', { class: 'help' }, 'Usually one misread character. Pick a look-alike match below, or click the code and type what the image shows.'),
+    el.chips);
+
+  if (src.kind === 'image') {
+    el.overlay = h('div', { class: 'overlay' });
+    el.pText = h('span'); el.pBar = h('div', { class: 'bar indet' }, h('i'));
+    el.progress = h('div', { class: 'progress', hidden: true }, el.pText, el.pBar);
+    const shown = h('img', { src: src.url, alt: `Uploaded image ${src.name}`, draggable: 'false' });
+    el.figure = h('figure', { class: 'figure' }, shown, el.overlay, el.progress);
+    sizeFigure(src, el.figure);
+    el.bench = h('div', { class: 'bench' }, el.figure, el.unmatched);
+    wireSelect(src, el);
+  } else {
+    el.bench = h('div', { class: 'bench' }, el.unmatched);
+  }
+  el.section = h('section', { class: 'source', id: 'src-' + src.id, 'aria-label': src.name }, el.head, el.error, el.bench, el.teams, el.grid);
+  src.el = el;
+  const list = $('#sources');
+  if (src.kind === 'manual') list.append(el.section);
+  else { const manual = state.sources.find(s => s.kind === 'manual' && s.el); list.insertBefore(el.section, manual ? manual.el.section : null); }
+  layout(src);
+}
+function sizeFigure(src, fig) {
+  const maxH = Math.min(560, Math.round(window.innerHeight * 0.62));
+  fig.style.aspectRatio = `${src.w} / ${src.h}`;
+  fig.style.width = `min(100%, ${Math.round(maxH * src.w / src.h)}px, ${src.w * 1.5}px)`;
+}
+window.addEventListener('resize', () => state.sources.forEach(s => s.kind === 'image' && s.el && sizeFigure(s, s.el.figure)));
+
+function setProgress(src, text, frac) {
+  const el = src.el; if (!el || !el.progress) return;
+  if (text == null) { el.progress.hidden = true; return; }
+  el.progress.hidden = false; el.pText.textContent = frac == null ? text : `${text} ${Math.round(frac * 100)}%`;
+  el.pBar.classList.toggle('indet', frac == null);
+  el.pBar.firstChild.style.width = frac == null ? '' : `${Math.round(frac * 100)}%`;
+}
+
+const layoutQueued = new Set();
+function layout(src) {
+  layoutQueued.add(src);
+  if (layoutQueued.size === 1) queueMicrotask(() => { const all = [...layoutQueued]; layoutQueued.clear(); all.forEach(layoutNow); });
+}
+function syncChildren(container, els) {
+  els.forEach((el, i) => { if (container.children[i] !== el) container.insertBefore(el, container.children[i] || null); });
+  while (container.children.length > els.length) container.lastElementChild.remove();
+}
+function displayOrder(src) {
+  if (!src.teams || !src.teams.length) return readingOrder(src.decks);
+  const seen = new Set(), out = [];
+  for (const t of src.teams) for (const d of [...t.slots.map(s => s.deck), ...t.extras]) if (d && !seen.has(d)) { seen.add(d); out.push(d); }
+  for (const d of readingOrder(src.decks)) if (!seen.has(d)) out.push(d);
+  return out;
+}
+function ensureEl(d) {
+  const sig = [d.status, d.code, siteOf(d), d.fixedFrom, d.note, d.alts ? d.alts.state + ':' + d.alts.hits.join(',') : ''].join('|');
+  if (d.built !== sig || !d.el) {
+    const fresh = d.status === 'missing' ? buildChip(d) : buildCard(d);
+    if (d.el && d.el.parentNode) d.el.replaceWith(fresh);
+    d.el = fresh; d.built = sig;
+  }
+}
+function layoutNow(src) {
+  if (!src.el || !state.sources.includes(src)) return;
+  src.el.title.textContent = imageTitle(src);
+  src.decks.forEach(d => { d.team = null; d.seed = null; });
+  const g = src.kind === 'image' ? analyzeGrid(src) : null;
+  src.grid = g;
+  const trio = isTrio(src) && g;
+  src.teams = trio ? buildTeams(g) : [];
+  if (trio) assignRanks(src, src.teams, g);
+  const order = displayOrder(src).filter(d => !d.hidden);
+  let n = 0;
+  for (const d of order) {
+    ensureEl(d);
+    d.num = d.status === 'found' ? ++n : null;
+    const numEl = d.el.querySelector('.num');
+    if (numEl) numEl.textContent = d.team ? SEEDS[d.seed] : (d.num || '·');
+    const tagEl = d.el.querySelector('.tag');
+    if (tagEl) { const tag = tagFor(d); tagEl.textContent = tag || ''; tagEl.hidden = !tag; }
+  }
+  if (trio) {
+    syncChildren(src.el.teams, src.teams.map(t => teamSection(src, t)));
+    syncChildren(src.el.grid, order.filter(d => !d.team && d.status !== 'missing').map(d => d.el));
+    syncChildren(src.el.chips, order.filter(d => !d.team && d.status === 'missing').map(d => d.el));
+  } else {
+    syncChildren(src.el.teams, []);
+    syncChildren(src.el.grid, order.filter(d => d.status !== 'missing').map(d => d.el));
+    syncChildren(src.el.chips, order.filter(d => d.status === 'missing').map(d => d.el));
+  }
+  src.el.unmatched.hidden = !src.el.chips.children.length;
+  src.el.grid.hidden = !src.el.grid.children.length;
+  src.el.teams.hidden = !src.el.teams.children.length;
+  if (src.el.figure) src.el.figure.hidden = !!src.collapsed;
+  drawBoxes(src);
+  updateHead(src);
+  updateSummary();
+}
+
+function teamSection(src, t) {
+  let te = src.teamEls.get(t.key);
+  if (!te) {
+    te = {};
+    te.place = h('button', { class: 'place', type: 'button', title: 'Click to set this team’s placement' });
+    te.place.addEventListener('click', () => editPlacement(src, te));
+    te.sub = h('span', { class: 'team-sub' });
+    te.grid = h('div', { class: 'team-grid' });
+    te.sec = h('section', { class: 'team' }, h('div', { class: 'team-head' }, te.place, te.sub), te.grid);
+    src.teamEls.set(t.key, te);
+  }
+  te.team = t;
+  if (te.place.isConnected || !te.sec.querySelector('.place-edit')) te.place.textContent = teamName(t);
+  te.sec.setAttribute('aria-label', `${teamName(t)} team`);
+  const found = [...t.slots.map(s => s.deck), ...t.extras].filter(d => d && d.status === 'found').length;
+  const where = t.rankFrom === 'label' ? 'placement read from the image'
+    : t.rankFrom === 'order' ? 'placement guessed from the image order, click it to correct'
+    : t.rankFrom === 'typed' ? 'placement set by you' : 'placement unknown, click the name to set it';
+  te.sub.textContent = `${t.rank ? `Team ${t.index + 1} · ` : ''}${found} of 3 decks · ${where}`;
+  const kids = t.slots.map((s, k) => (s.deck ? s.deck.el : placeholderEl(src, t, k, s))).concat(t.extras.map(d => d.el));
+  syncChildren(te.grid, kids);
+  return te.sec;
+}
+function editPlacement(src, te) {
+  const t = te.team;
+  const inp = h('input', { class: 'place-edit', type: 'number', min: '1', max: '999', value: t.rank || '', 'aria-label': 'Placement of this team, for example 1 for 1st' });
+  let done = false;
+  const finish = commit => {
+    if (done) return; done = true;
+    const n = parseInt(inp.value, 10);
+    if (commit && n > 0) src.typedRanks.set(t.key, n);
+    else if (commit && inp.value.trim() === '') src.typedRanks.delete(t.key);
+    if (inp.isConnected) inp.replaceWith(te.place);
+    layout(src);
+  };
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); finish(false); te.place.focus(); }
+  });
+  inp.addEventListener('blur', () => finish(true));
+  te.place.replaceWith(inp); inp.focus(); inp.select();
+}
+function placeholderEl(src, t, k, s) {
+  const g = src.grid, key = `${Math.round(s.cx)}:${Math.round(s.cy)}`;
+  let el = src.slotEls.get(key);
+  if (el) return el;
+  const box = slotBox(g, s);
+  const input = h('input', { class: 'code-edit', placeholder: 'CODE', maxlength: '8', spellcheck: 'false', autocomplete: 'off', 'aria-label': `Deck code for seed ${SEEDS[k]}` });
+  const form = h('form', { class: 'ph-form' }, input, h('button', { class: 'btn small', type: 'submit' }, 'Look up'));
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const v = normCode(input.value);
+    if (!CODE_RE.test(v)) { toast('Decklog codes are 5 or 6 letters and digits'); return; }
+    const d = addDeck(src, { text: v, conf: 100, bbox: box });
+    if (!d) { toast('That code is already listed'); return; }
+    checkDeck(d);
+  });
+  el = h('div', { class: 'deck placeholder', 'data-slot': key },
+    h('div', { class: 'deck-head' },
+      h('span', { class: 'num' }, SEEDS[k]),
+      cropFor(src, box, 'This seat in the image'),
+      h('div', { class: 'id' }, h('span', { class: 'ph-title' }, `Seed ${SEEDS[k]}: no code read here`), h('span', { class: 'ph-note' }, 'Type the code shown in the crop'))),
+    form);
+  src.slotEls.set(key, el);
+  return el;
+}
+
+function cropFor(src, b, label) {
+  if (!b || !src.img) return null;
+  const bh = b.y1 - b.y0, padX = bh * 1.3;
+  const x0 = Math.max(0, b.x0 - padX), x1 = Math.min(src.w, b.x1 + padX);
+  const y0 = Math.max(0, b.y0 - bh * 1.7), y1 = Math.min(src.h, b.y1 + bh * 0.35);
+  const w = x1 - x0, hh = y1 - y0; if (w < 2 || hh < 2) return null;
+  const scale = Math.min(4, 104 / hh);
+  const c = h('canvas', { class: 'crop', role: 'img', 'aria-label': label });
+  c.width = Math.max(1, Math.round(w * scale)); c.height = Math.max(1, Math.round(hh * scale));
+  const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+  g.drawImage(src.img, x0, y0, w, hh, 0, 0, c.width, c.height);
+  return c;
+}
+const deckCrop = d => cropFor(d.source, d.bbox, `The part of the image where ${d.read} was read`);
+
+function codeButton(d) {
+  const b = h('button', { class: 'code', type: 'button', title: 'Click to correct this code', 'aria-label': `Deck code ${d.code}, click to edit` }, d.code);
+  b.addEventListener('click', () => startEdit(d, b));
+  return b;
+}
+
+function buildCard(d) {
+  const site = siteOf(d);
+  const pills = h('div', { class: 'pills' }, h('span', { class: 'tag', hidden: true }));
+  if (d.status === 'checking') {
+    pills.append(h('span', { class: 'pill' }, d.note || `Checking ${SITES[site].label}…`));
+    return h('article', { class: 'deck pending', id: 'deck-' + d.id },
+      h('div', { class: 'deck-head' }, h('span', { class: 'num' }, '·'), deckCrop(d),
+        h('div', { class: 'id' }, h('span', { class: 'code', style: 'cursor:default' }, d.code), pills)),
+      h('div', { class: 'skeleton', 'aria-hidden': 'true' }));
+  }
+  pills.append(d.fixedFrom
+    ? h('span', { class: 'pill warn', title: 'The first reading had no deck on Decklog. Compare the code with the crop on the left.' }, `First read as ${d.fixedFrom}`)
+    : h('span', { class: 'pill ok' }, SITES[site].label));
+  const shot = h('button', { class: 'shot', type: 'button', 'aria-label': `Enlarge deck ${d.code}`, onclick: () => openLb(d) }, d.img.cloneNode());
+  return h('article', { class: 'deck', id: 'deck-' + d.id },
+    h('div', { class: 'deck-head' },
+      h('span', { class: 'num' }), deckCrop(d),
+      h('div', { class: 'id' }, codeButton(d), pills),
+      h('div', { class: 'deck-acts' },
+        h('a', { class: 'btn ghost small', href: viewUrl(d.code, site), target: '_blank', rel: 'noopener', title: 'Open this deck on Decklog', 'aria-label': `Open ${d.code} on Decklog` }, h('span', { class: 'btn-label' }, 'Decklog'), icon('ext')),
+        h('button', { class: 'btn ghost small icon', type: 'button', title: 'Copy Decklog link', 'aria-label': `Copy link for ${d.code}`, onclick: async () => toast(await copyText(viewUrl(d.code, site)) ? 'Link copied' : 'Couldn’t copy') }, icon('copy')),
+        h('button', { class: 'btn ghost small icon', type: 'button', title: 'Remove', 'aria-label': `Remove deck ${d.code}`, onclick: () => removeDeck(d) }, icon('x')))),
+    shot);
+}
+
+function buildChip(d) {
+  const site = siteOf(d), other = site === 'jp' ? 'en' : 'jp';
+  const acts = h('div', { class: 'chip-acts' },
+    h('button', { class: 'btn small', type: 'button', onclick: () => tryLookalikes(d), disabled: d.alts && d.alts.state === 'running' }, 'Try look-alikes'),
+    h('button', { class: 'btn small ghost', type: 'button', onclick: () => { d.site = other; checkDeck(d); } }, `Try ${SITES[other].label}`),
+    h('a', { class: 'btn small ghost', href: viewUrl(d.code, site), target: '_blank', rel: 'noopener' }, 'Open', icon('ext')),
+    h('button', { class: 'btn small ghost icon', type: 'button', title: 'Remove', 'aria-label': `Remove ${d.code}`, onclick: () => removeDeck(d) }, icon('x')));
+  let alts = null;
+  if (d.alts) {
+    if (d.alts.state === 'running') alts = h('div', { class: 'alts' }, `Checking ${plural(d.alts.total, 'look-alike code')}…`);
+    else if (!d.alts.hits.length) alts = h('div', { class: 'alts' }, `None of ${plural(d.alts.total, 'look-alike code')} are on ${SITES[site].label}. Click the code above and type what the image shows.`);
+    else alts = h('div', { class: 'alts' },
+      h('span', { style: 'flex-basis:100%' }, d.alts.hits.length === 1
+        ? 'One look-alike code exists. Use it if it matches the image:'
+        : `${d.alts.hits.length} look-alike codes exist. Pick the one that matches the image:`),
+      d.alts.hits.slice(0, 8).map(code => {
+        const btn = h('button', { class: 'alt', type: 'button', title: `Use ${code}`, onclick: () => { d.fixedFrom = d.fixedFrom || d.read; d.code = code; checkDeck(d); } }, h('span', null, code));
+        probe(code, site).then(img => { if (img) btn.prepend(img.cloneNode()); });
+        return btn;
+      }));
+  }
+  return h('div', { class: 'chip', id: 'deck-' + d.id }, deckCrop(d),
+    h('div', { class: 'chip-main' },
+      h('div', { class: 'chip-top' }, h('span', { class: 'tag', hidden: true }), codeButton(d), h('span', { class: 'chip-note' }, `No snapshot on ${SITES[site].label}`)),
+      acts, alts));
+}
+
+function boxEl(src, b, cls, badge, label, onclick) {
+  const pad = (b.y1 - b.y0) * 0.3;
+  const x0 = Math.max(0, b.x0 - pad), y0 = Math.max(0, b.y0 - pad), x1 = Math.min(src.w, b.x1 + pad), y1 = Math.min(src.h, b.y1 + pad);
+  return h('button', {
+    class: 'box ' + cls + (x0 / src.w < 0.06 ? ' edge' : ''), type: 'button', title: label, 'aria-label': label,
+    style: `left:${x0 / src.w * 100}%;top:${y0 / src.h * 100}%;width:${(x1 - x0) / src.w * 100}%;height:${(y1 - y0) / src.h * 100}%`,
+    onclick,
+  }, badge ? h('span', { class: 'box-num' }, badge) : null);
+}
+function drawBoxes(src) {
+  const ov = src.el && src.el.overlay; if (!ov) return;
+  const boxes = src.decks.filter(d => d.bbox && !d.hidden).map(d => {
+    const badge = d.team ? `${teamShort(d.team)} ${SEEDS[d.seed]}` : d.status === 'found' ? String(d.num) : d.status === 'missing' ? '?' : null;
+    const label = `${d.team ? tagFor(d) + ': ' : ''}${d.code}${d.status === 'missing' ? ', not found' : d.status === 'checking' ? ', checking' : ''}`;
+    return boxEl(src, d.bbox, d.status, badge, label, () => focusEl(d.el));
+  });
+  for (const t of src.teams || []) t.slots.forEach((s, k) => {
+    if (s.deck) return;
+    boxes.push(boxEl(src, slotBox(src.grid, s), 'empty', `${teamShort(t)} ${SEEDS[k]}`, `${teamName(t)} seed ${SEEDS[k]}: no code read`,
+      () => { const el = src.slotEls.get(`${Math.round(s.cx)}:${Math.round(s.cy)}`); focusEl(el); if (el) el.querySelector('input').focus({ preventScroll: true }); }));
+  });
+  ov.replaceChildren(...boxes, ...(src.sel ? [src.sel] : []));
+}
+function focusEl(el) {
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+
+function updateHead(src) {
+  const el = src.el; if (!el) return;
+  const count = st => src.decks.filter(d => d.status === st && !d.hidden).length;
+  const found = count('found'), missing = count('missing'), checking = count('checking');
+  const activity = src.phase || (src.labelState === 'running' ? 'Looking for placement labels…' : null);
+  const parts = [];
+  if (src.busy && !src.scans) parts.push(h('span', { class: 'activity' }, activity || 'Reading the image…'));
+  else if (src.kind === 'image' && src.scans && !src.decks.some(d => !d.hidden) && !src.busy) parts.push('No deck codes found. Use “Rescan an area” to box a code, or type it above.');
+  else {
+    parts.push(h('b', null, plural(found, 'deck')));
+    if (src.teams && src.teams.length) parts.push(` · ${plural(src.teams.length, 'team')}`);
+    if (checking) parts.push(` · checking ${checking}`);
+    if (missing) parts.push(` · ${missing} not found`);
+    const empty = (src.teams || []).reduce((n, t) => n + t.slots.filter(s => !s.deck).length, 0);
+    if (empty && !src.busy) parts.push(` · ${plural(empty, 'empty seat')}`);
+    if (activity) parts.push(h('span', { class: 'activity' }, ` · ${activity}`));
+  }
+  el.stats.replaceChildren(...parts);
+  if (el.fmt) el.fmt.querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.fmt === src.format)));
+  if (el.hideBtn) el.hideBtn.textContent = src.collapsed ? 'Show image' : 'Hide image';
+  if (el.areaBtn) { el.areaBtn.textContent = src.selecting ? 'Cancel box' : 'Rescan an area'; el.areaBtn.disabled = src.busy || src.collapsed; }
+  el.error.hidden = !src.error;
+  if (src.error) el.error.replaceChildren(
+    h('span', null, `Couldn’t read this image: ${src.error}`),
+    h('button', { class: 'btn small', type: 'button', onclick: () => scan(src, { x: 0, y: 0, w: src.w, h: src.h }, false) }, 'Try again'));
+}
+
+function setFormat(src, fmt) {
+  if (src.format === fmt) return;
+  src.format = fmt; state.format = fmt; store.set('format', fmt); syncTrayFmt();
+  layout(src);
+  if (fmt === 'trio' && src.scans && !src.labelState && !src.busy) findLabels(src);
+}
+
+function allFound() {
+  return state.sources.flatMap(s => displayOrder(s).filter(d => d.status === 'found'));
+}
+function updateSummary() {
+  const found = allFound(), any = state.sources.some(s => s.decks.length || s.busy);
+  $('#summary').hidden = !any;
+  const images = state.sources.filter(s => s.kind === 'image');
+  const busy = images.filter(s => s.busy).length;
+  const pending = state.sources.reduce((n, s) => n + s.decks.filter(d => d.status === 'checking').length, 0);
+  const teams = state.sources.reduce((n, s) => n + (s.teams ? s.teams.length : 0), 0);
+  const note = busy ? `scanning ${plural(busy, 'image')}…` : pending ? `checking ${pending} more` : teams ? `${plural(teams, 'team')} across ${plural(images.length, 'image')}` : images.length > 1 ? `across ${images.length} images` : '';
+  $('#sumCount').replaceChildren(plural(found.length, 'deck'), note ? h('small', null, note) : '');
+  const jump = $('#jump');
+  jump.hidden = state.sources.length < 2;
+  if (!jump.hidden) {
+    jump.replaceChildren(...state.sources.map(s => h('button', {
+      type: 'button', class: s.busy ? 'busy' : '', onclick: () => s.el.section.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    }, h('b', null, imageTitle(s)), h('span', null, s.busy ? 'scanning…' : `${s.decks.filter(d => d.status === 'found').length} decks`))));
+  }
+  updateTabDot();
+}
+function updateChrome() {
+  const n = state.tray.length, hasImage = state.sources.some(s => s.kind === 'image');
+  $('#drop').classList.toggle('compact', state.sources.length > 0 && !n);
+  $('#dropTitle').textContent = n ? `${plural(n, 'image')} ready to scan` : hasImage ? 'Add more images' : state.sources.length ? 'Add images' : 'Paste or drop results images';
+  $('#drop').dataset.dropLabel = state.auto ? 'Drop to scan' : 'Drop to add';
+  updateTabDot();
+}
+
+/* ================= editing & look-alikes ================= */
+function startEdit(d, btn) {
+  const inp = h('input', { class: 'code-edit', value: d.code, maxlength: '8', 'aria-label': 'Deck code', spellcheck: 'false', autocomplete: 'off' });
+  let done = false;
+  const finish = commit => {
+    if (done) return; done = true;
+    const v = normCode(inp.value);
+    if (commit && v && v !== d.code) {
+      if (d.bbox) { d.fixedFrom = d.fixedFrom || d.read; if (v === d.read) d.fixedFrom = null; }
+      d.code = v; checkDeck(d);
+    } else if (inp.isConnected) inp.replaceWith(btn);
+  };
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); finish(false); btn.focus(); }
+  });
+  inp.addEventListener('blur', () => finish(true));
+  btn.replaceWith(inp); inp.focus(); inp.select();
+}
+// Codes one confusable character away from any reading, as [code, how many readings point at it].
+// Dropping a character is only tried where one is clearly extra (7 characters, or an I, which codes never use).
+function lookalikes(readings) {
+  const score = new Map();
+  for (const r of readings) {
+    const mine = new Set();
+    if (r.length >= 5 && r.length <= 6) {
+      for (let i = 0; i < r.length; i++) for (const a of LOOKALIKES[r[i]] || []) mine.add(r.slice(0, i) + a + r.slice(i + 1));
+    }
+    for (let i = 0; i < r.length; i++) if (r.length === 7 || r[i] === 'I') mine.add(r.slice(0, i) + r.slice(i + 1));
+    mine.forEach(v => score.set(v, (score.get(v) || 0) + 1));
+  }
+  readings.forEach(r => score.delete(r));
+  return [...score].filter(([v]) => CODE_RE.test(v) && !/^\d+$/.test(v)).sort((a, b) => b[1] - a[1]);
+}
+async function tryLookalikes(d) {
+  const src = d.source, site = siteOf(d), token = d.token;
+  const g = src.kind === 'image' ? analyzeGrid(src) : null;
+  if (d.hidden) return; // stray text, not worth probing
+  const taken = new Set(src.decks.filter(x => x !== d).map(x => x.code));
+  const variants = lookalikes([...new Set([d.code, ...(d.readings || [])])]).filter(([v]) => !taken.has(v));
+  d.alts = { state: 'running', total: variants.length, hits: [] };
+  layout(src);
+  const results = await Promise.all(variants.map(async ([v, n]) => ({ v, n, ok: !!(await probe(v, site)) })));
+  if (d.removed || token !== d.token || d.status !== 'missing') return;
+  const hits = results.filter(r => r.ok).sort((a, b) => b.n - a.n);
+  // A clear winner for a code sitting on a seat: at least two readings point at it, and at least twice as
+  // many as at any other existing look-alike. It keeps the "First read as …" note so it can be checked.
+  const top = hits[0];
+  if (top && top.n >= 2 && (hits.length === 1 || top.n >= 2 * hits[1].n) && (!g || !g.regular || d.slot)) {
+    d.fixedFrom = d.fixedFrom || d.read; d.code = hits[0].v; checkDeck(d);
+    return;
+  }
+  d.alts = { state: 'done', total: variants.length, hits: hits.map(r => r.v) };
+  layout(src);
+}
+
+/* ================= area rescan ================= */
+function toggleSelect(src, force) {
+  src.selecting = force == null ? !src.selecting : force;
+  src.el.figure.classList.toggle('selecting', src.selecting);
+  if (!src.selecting && src.sel) { src.sel.remove(); src.sel = null; }
+  if (src.selecting) toast('Drag a box around the code you want read again');
+  updateHead(src);
+}
+function wireSelect(src, el) {
+  let start = null;
+  const toImg = e => {
+    const r = el.figure.getBoundingClientRect();
+    return { x: Math.min(Math.max(0, (e.clientX - r.left) / r.width), 1) * src.w, y: Math.min(Math.max(0, (e.clientY - r.top) / r.height), 1) * src.h };
+  };
+  const place = (a, b) => {
+    const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y), x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
+    src.sel.style.cssText = `left:${x0 / src.w * 100}%;top:${y0 / src.h * 100}%;width:${(x1 - x0) / src.w * 100}%;height:${(y1 - y0) / src.h * 100}%`;
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  };
+  el.overlay.addEventListener('pointerdown', e => {
+    if (!src.selecting || src.busy) return;
+    e.preventDefault(); start = toImg(e);
+    src.sel = h('div', { class: 'sel' }); el.overlay.append(src.sel); place(start, start);
+    el.overlay.setPointerCapture(e.pointerId);
+  });
+  el.overlay.addEventListener('pointermove', e => { if (start && src.sel) place(start, toImg(e)); });
+  const end = e => {
+    if (!start) return;
+    const rect = place(start, toImg(e)); start = null;
+    toggleSelect(src, false);
+    const fr = el.figure.getBoundingClientRect(), minPx = 8 * src.w / fr.width;
+    if (rect.w < minPx || rect.h < minPx) { toast('That box is too small. Drag across the whole code.'); return; }
+    const pad = rect.h * 0.15;
+    scan(src, clampRect({ x: rect.x - pad, y: rect.y - pad, w: rect.w + 2 * pad, h: rect.h + 2 * pad }, src), true);
+  };
+  el.overlay.addEventListener('pointerup', end);
+  el.overlay.addEventListener('pointercancel', () => { start = null; toggleSelect(src, false); });
+}
+
+/* ================= manual codes & links ================= */
+// Decklog links anywhere in the text, plus bare codes when `bare` is set (typed input or a short paste).
+function parseCodes(text, bare) {
+  const out = [], bad = [], seen = new Set();
+  const push = (raw, site) => {
+    const code = normCode(raw);
+    if (!code || seen.has(code)) return;
+    seen.add(code);
+    if (CODE_RE.test(code)) out.push({ code, site }); else bad.push(raw);
+  };
+  const urlRe = /decklog(-en)?\.bushiroad\.com\/(?:view|recipe|deckimages)\/([A-Za-z0-9]+)/g;
+  let m;
+  while ((m = urlRe.exec(text))) push(m[2], m[1] ? 'en' : 'jp');
+  if (bare) {
+    const rest = String(text).replace(/https?:\/\/\S+|decklog(-en)?\.bushiroad\.com\/\S*/g, ' ');
+    for (const tok of rest.split(/[\s,;、，。・/|]+/)) if (tok.trim()) push(tok.trim(), null);
+  }
+  out.bad = bad;
+  return out;
+}
+/* ================= links: X / Twitter posts, picture links, Decklog links ================= */
+// An X post link in any form: x.com, twitter.com, mobile., fxtwitter, vxtwitter, fixupx, nitter, xcancel…,
+// with or without https://, /i/status/, /photo/1 or tracking parameters after the ID.
+const X_POST_RE = /(?:https?:\/\/)?(?<![\w-])(?:[\w-]+\.)*(?:x|twitter|fxtwitter|vxtwitter|fixupx|fixvx|twittpr|nitter|xcancel)\.[a-z.]{2,12}\/(?:[^\s?#"'<>]*?\/)?status(?:es)?\/(\d{5,25})/gi;
+const IMG_URL_RE = /https?:\/\/[^\s"'<>]+?\.(?:png|jpe?g|webp|gif|bmp)(?:\?[^\s"'<>]*)?(?=$|[\s"'<>])|https?:\/\/pbs\.twimg\.com\/media\/[^\s"'<>]+/gi;
+// Public services that return a post's pictures without logging in. X's own embed service only answers X's own pages.
+const X_ROUTES = [
+  {
+    url: id => `https://api.fxtwitter.com/status/${id}`,
+    read: j => j && j.tweet ? {
+      author: j.tweet.author && j.tweet.author.screen_name,
+      photos: [...((j.tweet.media && j.tweet.media.photos) || []), ...((j.tweet.quote && j.tweet.quote.media && j.tweet.quote.media.photos) || [])].map(p => p.url),
+    } : null,
+  },
+  {
+    url: id => `https://api.vxtwitter.com/Twitter/status/${id}`,
+    read: j => j && j.tweetID ? { author: j.user_screen_name, photos: (j.media_extended || []).filter(m => m.type === 'image').map(m => m.url) } : null,
+  },
+];
+const fullSize = u => (/pbs\.twimg\.com\/media\//.test(u) && !/[?&]name=/.test(u) ? u + (u.includes('?') ? '&' : '?') + 'name=orig' : u);
+async function fetchXPhotos(id) {
+  let missing = false;
+  for (const route of X_ROUTES) {
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 12000);
+    try {
+      const r = await fetch(route.url(id), { signal: ctl.signal });
+      if (r.status === 404 || r.status === 401) { missing = true; continue; }
+      if (!r.ok) continue;
+      const info = route.read(await r.json());
+      if (info) return info;
+    } catch { /* this service is down or blocked: try the next one */ } finally { clearTimeout(timer); }
+  }
+  return missing ? { missing: true, photos: [] } : null;
+}
+// Download pictures and put them in the tray. Returns how many failed.
+async function importPictures(urls, label) {
+  const files = await Promise.all(urls.map(async (u, i) => {
+    try {
+      const r = await fetch(fullSize(u)); if (!r.ok) return null;
+      const b = await r.blob(); if (!b.type.startsWith('image/')) return null;
+      return new File([b], urls.length > 1 ? `${label} picture ${i + 1} of ${urls.length}` : label, { type: b.type });
+    } catch { return null; }
+  }));
+  const ok = files.filter(Boolean);
+  if (ok.length) await handleFiles(ok);
+  return urls.length - ok.length;
+}
+async function importXPost(id) {
+  toast('Getting the pictures from that X post…');
+  const info = await fetchXPhotos(id);
+  if (!info) { toast('Couldn’t reach X right now. Open the post, right-click a picture → Copy image, and paste it here.'); return; }
+  if (info.missing) { toast('That X post can’t be read. It may be deleted, from a protected account, or age-restricted.'); return; }
+  if (!info.photos.length) { toast(`That post${info.author ? ` by @${info.author}` : ''} has no pictures to scan.`); return; }
+  const failed = await importPictures(info.photos, `@${info.author || 'X post'}`);
+  if (failed) toast(`${plural(failed, 'picture')} from that post couldn’t be downloaded. Copy ${failed > 1 ? 'them' : 'it'} from X and paste instead.`);
+}
+// Link addresses hidden behind copied link text: <a href> and <img src> in the copied HTML.
+const linksInHtml = html => [...String(html || '').matchAll(/\b(?:href|src)\s*=\s*["']([^"']+)["']/gi)].map(m => m[1]).join('\n');
+// Handles every kind of link the app understands. Returns false when the text held nothing it could use.
+// `bare` also reads plain codes ("1E74U4"); only for typed text or a short paste.
+function handleLinks(text, bare) {
+  text = String(text || '');
+  const xIds = [...new Set([...text.matchAll(X_POST_RE)].map(m => m[1]))];
+  // Decklog's own deck pictures count as deck codes (Decklog doesn't let pages download them as pictures).
+  const pics = [...new Set(text.match(IMG_URL_RE) || [])].filter(u => !/decklog(-en)?\.bushiroad\.com/i.test(u));
+  const rest = text.replace(X_POST_RE, ' ').replace(IMG_URL_RE, m => (/decklog(-en)?\.bushiroad\.com/i.test(m) ? m : ' '));
+  const decks = parseCodes(rest, bare);
+  if (!xIds.length && !pics.length && !decks.length && !decks.bad.length) {
+    if (/(?:^|[^\w.])t\.co\/\w+/i.test(text)) { toast('Short t.co links can’t be opened. In X, use Share → Copy link and paste that.'); return true; }
+    return false;
+  }
+  goView('scanner');
+  if (decks.length || decks.bad.length) addManual(decks);
+  (async () => {
+    for (const id of xIds) await importXPost(id);
+    if (pics.length) {
+      const failed = await importPictures(pics, 'Linked picture');
+      if (failed) toast('That site doesn’t let other pages download its pictures. Right-click the picture → Copy image, then paste here.');
+    }
+  })();
+  return true;
+}
+
+function addManual(list) {
+  if (list.bad && list.bad.length) toast(`Skipped ${list.bad.slice(0, 3).join(', ')}${list.bad.length > 3 ? '…' : ''}: Decklog codes are 5 or 6 letters and digits`);
+  if (!list.length) { if (!list.bad || !list.bad.length) toast('No deck code found in that text'); return; }
+  goView('scanner');
+  const src = manualSource();
+  let added = 0;
+  for (const it of list) {
+    const d = addDeck(src, { text: it.code, conf: 100, bbox: null, site: it.site && it.site !== state.site ? it.site : null });
+    if (d) { added++; checkDeck(d); }
+  }
+  updateChrome();
+  if (!added) toast('Already in the list');
+  requestAnimationFrame(() => requestAnimationFrame(() => src.el.section.scrollIntoView({ behavior: 'smooth', block: 'nearest' })));
+}
+
+/* ================= copying ================= */
+function lineFor(d, link) {
+  const value = link ? viewUrl(d.code, siteOf(d)) : d.code;
+  const multi = state.sources.filter(s => s.decks.some(x => x.status === 'found')).length > 1;
+  const where = [multi ? imageTitle(d.source) : null, d.team ? `${teamName(d.team)} ${SEEDS[d.seed]}` : null].filter(Boolean).join(' · ');
+  return where ? `${where}: ${value}` : value;
+}
+async function copyAll(link) {
+  const found = allFound(); if (!found.length) return toast('No decks to copy yet');
+  const ok = await copyText(found.map(d => lineFor(d, link)).join('\n'));
+  toast(ok ? `Copied ${plural(found.length, link ? 'link' : 'code')}` : 'Couldn’t copy');
+}
+
+/* ================= lightbox ================= */
+const lb = { list: [], i: 0, back: null };
+function openLb(d) {
+  lb.list = allFound(); lb.i = Math.max(0, lb.list.indexOf(d)); lb.back = document.activeElement;
+  $('#lb').hidden = false; document.body.classList.add('lb-open');
+  showLb(); $('#lbClose').focus();
+}
+function showLb() {
+  const d = lb.list[lb.i]; if (!d) return closeLb();
+  const site = siteOf(d);
+  $('#lbCode').textContent = d.code;
+  const team = $('#lbTeam');
+  team.hidden = !d.team;
+  if (d.team) team.textContent = `${teamName(d.team)} · Seed ${SEEDS[d.seed]} (${SEED_WHERE[d.seed]})`;
+  const from = d.source.kind === 'manual' ? 'added by code' : d.team ? imageTitle(d.source) : `${imageTitle(d.source)}, deck ${d.num}`;
+  $('#lbMeta').textContent = `${lb.i + 1} of ${lb.list.length} · ${from} · ${SITES[site].label}`;
+  $('#lbOpen').href = viewUrl(d.code, site);
+  $('#lbImg').replaceChildren(d.img.cloneNode());
+  $('#lbPrev').hidden = $('#lbNext').hidden = lb.list.length < 2;
+}
+function stepLb(n) { if (lb.list.length) { lb.i = (lb.i + n + lb.list.length) % lb.list.length; showLb(); } }
+function closeLb() {
+  $('#lb').hidden = true; document.body.classList.remove('lb-open'); $('#lbImg').replaceChildren();
+  if (lb.back && lb.back.focus) lb.back.focus();
+}
+$('#lbPrev').addEventListener('click', () => stepLb(-1));
+$('#lbNext').addEventListener('click', () => stepLb(1));
+$('#lbClose').addEventListener('click', closeLb);
+$('#lbCopy').addEventListener('click', async () => { const d = lb.list[lb.i]; if (d) toast(await copyText(viewUrl(d.code, siteOf(d))) ? 'Link copied' : 'Couldn’t copy'); });
+$('#lbStage').addEventListener('click', e => { if (e.target === e.currentTarget) closeLb(); });
+document.addEventListener('keydown', e => {
+  if ($('#lb').hidden) {
+    if (e.key === 'Escape') state.sources.forEach(s => s.selecting && toggleSelect(s, false));
+    return;
+  }
+  if (e.key === 'Escape') { e.preventDefault(); closeLb(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); stepLb(-1); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); stepLb(1); }
+});
+
+/* ================= global wiring ================= */
+function setSite(site) {
+  state.site = site; store.set('site', site);
+  $('#siteSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.site === site)));
+  state.sources.forEach(s => s.decks.forEach(d => { if (!d.site) checkDeck(d); else layout(s); }));
+}
+function setSize(size) {
+  state.size = size; store.set('size', size);
+  document.documentElement.style.setProperty('--col', SIZES[size][0]);
+  document.documentElement.style.setProperty('--team-col', SIZES[size][1]);
+  $('#sizeSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.size === size)));
+}
+$('#siteSeg').addEventListener('click', e => { const b = e.target.closest('button[data-site]'); if (b && b.dataset.site !== state.site) setSite(b.dataset.site); });
+$('#sizeSeg').addEventListener('click', e => { const b = e.target.closest('button[data-size]'); if (b) setSize(b.dataset.size); });
+setSite(state.site); setSize(state.size);
+
+$('#pickBtn').addEventListener('click', () => $('#fileInput').click());
+$('#trayScan').addEventListener('click', scanTray);
+$('#trayClear').addEventListener('click', clearTray);
+$('#trayFmt').addEventListener('click', e => {
+  const b = e.target.closest('button[data-fmt]'); if (!b) return;
+  state.format = b.dataset.fmt; store.set('format', state.format); syncTrayFmt();
+});
+$('#autoScan').checked = state.auto;
+$('#autoScan').addEventListener('change', e => { state.auto = e.target.checked; store.set('auto', state.auto ? '1' : '0'); updateChrome(); });
+syncTrayFmt(); updateChrome();
+// Ctrl+Enter (⌘+Return on a Mac) scans the tray; ? opens the guide.
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && state.tray.length && $('#lb').hidden) { e.preventDefault(); goView('scanner'); scanTray(); }
+  else if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping(e.target) && $('#lb').hidden) { e.preventDefault(); goView('guide'); }
+});
+
+/* ================= tabs: Scanner, Guide & hotkeys, FAQ ================= */
+const VIEWS = ['scanner', 'guide', 'faq'];
+function showView(view) {
+  if (!VIEWS.includes(view)) view = 'scanner';
+  const changed = state.view !== view;
+  state.view = view;
+  VIEWS.forEach(v => {
+    const tab = $('#tab-' + v);
+    tab.setAttribute('aria-selected', String(v === view)); tab.tabIndex = v === view ? 0 : -1;
+    $('#view-' + v).hidden = v !== view;
+  });
+  if (changed && view !== 'scanner') window.scrollTo(0, 0);
+  updateTabDot();
+}
+// Views are plain #hashes, so a link like index.html#guide opens the guide.
+function goView(view) {
+  if (state.view === view) return;
+  try { history.replaceState(null, '', '#' + view); } catch { /* some viewers refuse URL changes */ }
+  showView(view);
+}
+// In-page links such as "read the guide" switch tabs without navigating.
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[href^="#"]');
+  const view = a && a.getAttribute('href').slice(1);
+  if (view && VIEWS.includes(view)) { e.preventDefault(); goView(view); }
+});
+function updateTabDot() {
+  const dot = $('#tab-scanner .tab-dot');
+  if (dot) dot.hidden = state.view === 'scanner' || !(state.tray.length || state.sources.some(s => s.busy));
+}
+window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
+$('.tabs').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) goView(b.dataset.view); });
+$('.tabs').addEventListener('keydown', e => {
+  if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+  e.preventDefault();
+  const v = VIEWS[(VIEWS.indexOf(state.view) + (e.key === 'ArrowRight' ? 1 : -1) + VIEWS.length) % VIEWS.length];
+  goView(v); $('#tab-' + v).focus();
+});
+
+// Shortcut names for this computer in the page's own hints; the Guide table highlights the matching column.
+function applyPlatform() {
+  document.querySelectorAll('.k-mod').forEach(k => { k.textContent = IS_MAC ? (k.closest('.doc') ? '⌘ Cmd' : '⌘') : 'Ctrl'; });
+  document.querySelectorAll('.k-enter').forEach(k => { k.textContent = IS_MAC ? (k.closest('.doc') ? '↩ Return' : 'Return') : 'Enter'; });
+  document.querySelectorAll('.os-name').forEach(e => { e.textContent = IS_MAC ? 'a Mac' : 'Windows'; });
+  const mine = IS_MAC ? 'mac' : 'win';
+  document.querySelectorAll('.keys td[data-os]').forEach(c => { c.dataset.osLabel = c.dataset.os === 'mac' ? 'Mac' : 'Windows'; });
+  document.querySelectorAll(`.keys [data-os="${mine}"]`).forEach(c => c.classList.add('mine'));
+  const th = document.querySelector(`.keys th[data-os="${mine}"]`);
+  if (th) th.append(h('span', { class: 'you' }, 'YOURS'));
+  $('#trayScan').setAttribute('aria-keyshortcuts', IS_MAC ? 'Meta+Enter' : 'Control+Enter');
+  // Phones and tablets have no Ctrl+V: point to the photo picker and the code box instead.
+  if (IS_TOUCH) document.querySelectorAll('[data-touch]').forEach(e => { e.textContent = e.dataset.touch; });
+  // Hosted copy (GitHub Pages): Home Screen icons, the app manifest and the Mac download link.
+  // Left out for the local file, which has no icons folder next to it.
+  if (/^https?:$/.test(location.protocol)) {
+    document.head.append(
+      h('link', { rel: 'manifest', href: 'manifest.webmanifest' }),
+      h('link', { rel: 'apple-touch-icon', href: 'apple-touch-icon.png' }),
+      h('link', { rel: 'icon', type: 'image/png', sizes: '192x192', href: 'icon-192.png' }));
+    document.querySelectorAll('.hosted-only').forEach(e => { e.hidden = false; });
+  }
+}
+applyPlatform();
+showView(location.hash.slice(1));
+$('#fileInput').addEventListener('change', e => { const files = [...e.target.files]; e.target.value = ''; handleFiles(files); });
+$('#addForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const inp = $('#codeInput');
+  if (!inp.value.trim()) { toast('Type a deck code, or paste a Decklog or X link'); return; }
+  const v = inp.value;
+  if (!handleLinks(v, true)) { toast('No deck code or link found in that'); return; }
+  // Keep the text when part of it wasn't a valid code, so a typo can be fixed.
+  if (!parseCodes(v.replace(X_POST_RE, ' ').replace(IMG_URL_RE, ' '), true).bad.length) inp.value = '';
+});
+$('#copyCodes').addEventListener('click', () => copyAll(false));
+$('#copyLinks').addEventListener('click', () => copyAll(true));
+let clearArmed = null;
+$('#clearAll').addEventListener('click', e => {
+  const b = e.currentTarget;
+  if (!clearArmed) { b.textContent = 'Click again to clear'; clearArmed = setTimeout(() => { clearArmed = null; b.textContent = 'Clear all'; }, 2500); return; }
+  clearTimeout(clearArmed); clearArmed = null; b.textContent = 'Clear all';
+  [...state.sources].forEach(removeSource);
+});
+
+let dragDepth = 0;
+const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+window.addEventListener('dragenter', e => { if (hasFiles(e)) { dragDepth++; document.body.classList.add('dragging'); } });
+window.addEventListener('dragleave', e => { if (hasFiles(e)) { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) document.body.classList.remove('dragging'); } });
+window.addEventListener('dragover', e => { e.preventDefault(); });
+window.addEventListener('drop', e => {
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
+  const dt = e.dataTransfer; if (!dt) return;
+  if (dt.files && dt.files.length) return handleFiles([...dt.files]);
+  // A link or picture dragged from another window (an X post, a picture on a web page, a Decklog link).
+  const text = [dt.getData('text/uri-list'), dt.getData('text/plain'), linksInHtml(dt.getData('text/html'))].join('\n');
+  if (!handleLinks(text, false)) toast(`Nothing to use in that. Drop pictures, or X and Decklog links (or copy and press ${MOD}+V).`);
+});
+document.addEventListener('paste', e => {
+  const cd = e.clipboardData; if (!cd) return;
+  const files = [...(cd.items || [])].filter(i => i.kind === 'file' && i.type.startsWith('image/')).map(i => i.getAsFile()).filter(Boolean);
+  if (files.length) { e.preventDefault(); handleFiles(files); return; }
+  const text = cd.getData('text/plain') || cd.getData('text') || '';
+  // A copied hyperlink can carry only its visible (often shortened) text; the real address is in the HTML.
+  const links = linksInHtml(cd.getData('text/html'));
+  const all = text + '\n' + links;
+  if (!all.trim()) return;
+  const typing = isTyping(e.target);
+  // Ordinary words pasted into a text box stay ordinary text; links work anywhere, the code box included.
+  const hasLink = X_POST_RE.test(all) || /decklog(-en)?\.bushiroad\.com|https?:\/\//i.test(all);
+  X_POST_RE.lastIndex = 0;
+  if (typing && !hasLink) return;
+  // Short pasted text can be bare codes; long text only counts its links, so words don't become lookups.
+  const handled = handleLinks(all, !hasLink && text.trim().length <= 60);
+  if (handled) { e.preventDefault(); return; }
+  if (!typing) toast('Nothing to use in that. Paste pictures, X post links or Decklog links.');
+});
+
+setTimeout(prewarm, 300);
+
+// Test hook: load an image from a URL this page can read (same folder / local server).
+window.__vds = {
+  CFG, state, readWords, extractItems, analyzeGrid,
+  async scanUrl(url, name) {
+    const blob = await (await fetch(url)).blob(), loaded = await loadImage(blob);
+    if (loaded) addImageSource({ ...loaded, name: name || url.split('/').pop(), key: await fileKey(blob) }, false);
+  },
+};
+})();
+</script>
+</body>
+</html>
