@@ -367,6 +367,14 @@ body.dragging .drop::after {
 .deck.marked .mark { border-radius: 7px 0 0 7px; }
 .deck.marked .mark-go { display: grid; }
 @media (pointer: coarse) { .mark { min-height: 38px; } .mark-go { width: 54px; } .mark-wrap { width: 166px; } } /* bigger targets for fingers */
+/* Phones only: the switch is 15% smaller than on tablets, so it doesn't crowd a small screen (141×32 instead of 166×38). */
+@media (pointer: coarse) and (max-width: 640px) {
+  .mark-wrap { width: 141px; }
+  .mark { min-width: 95px; min-height: 32px; padding: 5px 10px; gap: 6px; font-size: 11px; }
+  .mark input { width: 14px; height: 14px; }
+  .mark-go { width: 46px; }
+  .mark-go svg { width: 22px; height: 22px; }
+}
 .mark input, .cmp-sel input { margin: 0; width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 .deck.marked { box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
 .deck.marked .mark { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
@@ -405,6 +413,17 @@ body.has-decks { padding-bottom: 96px; }
   .cmp-bar { left: max(16px, env(safe-area-inset-left, 0px)); justify-content: space-between; }
   body.cmp-on .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
 }
+/* Phones only: the Compare bar is about 8% smaller and covers only the right half of the screen (172×48 instead of
+   343×52), with the count shortened to "2" over "marked". */
+@media (pointer: coarse) and (max-width: 640px) {
+  .cmp-bar { left: 50%; padding: 7px 7px 7px 12px; gap: 8px; border-radius: 11px; font-size: 13px; }
+  #cmpBarGo { font-size: 13px; padding: 4px 10px; gap: 6px; }
+  #cmpBarGo svg { width: 22px; height: 22px; }
+  #cmpBarText b { display: block; font-size: 15px; line-height: 15px; }
+  #cmpBarText .cnt-w { display: none; }
+  #cmpBarText .cnt-m { display: block; font-size: 10px; line-height: 12px; color: var(--muted); }
+}
+#cmpBarText b { font-weight: inherit; }
 
 /* ---------- guide and FAQ */
 .doc { max-width: 860px; display: grid; gap: 22px; padding-block: 4px 24px; }
@@ -2339,7 +2358,8 @@ function syncCompareTools() {
   $('#cmpSub').textContent = `${plural(n, 'deck')} marked${k ? ` · ${k} selected` : ''}. Click a deck to enlarge it; the arrow keys then flip through the marked decks only.`;
   const bar = $('#cmpBar');
   bar.hidden = !n || state.view !== 'scanner';
-  $('#cmpBarText').textContent = `${plural(n, 'deck')} marked`;
+  // "2 decks marked"; phones show it as "2" over "marked" (see the phone rules for .cmp-bar).
+  $('#cmpBarText').replaceChildren(h('b', null, String(n)), h('span', { class: 'cnt-w' }, n === 1 ? ' deck' : ' decks'), h('span', { class: 'cnt-m' }, ' marked'));
   document.body.classList.toggle('cmp-on', !bar.hidden);
 }
 function renderCompare() {
