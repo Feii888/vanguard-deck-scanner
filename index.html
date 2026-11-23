@@ -1141,9 +1141,13 @@ async function scan(src, rect, isRegion) {
       // Placement banners only exist on results graphics, not on single-deck pictures.
       if (src.format === 'trio' && !isSingleDeck(src)) { src.phase = 'Looking for placement labels…'; layout(src); await findLabels(src); }
       if (src.scans === 1) {
+        // Needs a look: a code read but not on Decklog, or an empty seat in the code grid.
         const unsure = src.decks.some(d => d.status !== 'found' && !d.hidden && !d.removed);
-        track(!confirmed.length ? 'picture-no-codes' : unsure ? 'picture-some-unsure' : 'picture-all-found',
-          !confirmed.length ? 'Picture scanned: no deck found' : unsure ? 'Picture scanned: some codes need a look' : 'Picture scanned: every code found');
+        const teams = src.teams || [];
+        const emptySeat = teams.length ? teams.some(t => t.slots.some(s => !s.deck)) : emptySlots(src.grid).length > 0;
+        if (unsure || emptySeat) track('picture-some-unsure', 'Picture scanned: some codes need checking or typing');
+        else if (confirmed.length) track('picture-all-found', 'Picture scanned: every code found');
+        else track('picture-no-codes', 'Picture scanned: no deck code found');
       }
     }
     const added = src.decks.length - before;
