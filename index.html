@@ -20,9 +20,15 @@
 <style>
 /* Layout: a scan bench. Each source image sits on top with live boxes over every code it read;
    the deck snapshots follow in the image's reading order, or grouped by team (seed A, B, C) for team events. */
+/* Contrast colour (--accent-2), chosen by the project's rule in DESIGN.md: take the accent's split-complementary
+   pair, drop the lightest of the three colours (CIE L*), and use the other split hue; blue accents use red
+   instead (blue against red). Same perceived lightness (OKLCH L) as the accent.
+   Light: accent #2343C4 (L* 35), splits #C45323 (L* 50) and #94C423 (L* 73, dropped) → red #A30319 (L* 34).
+   Dark:  accent #8099FF (L* 65), splits #FFA680 (L* 76) and #D9FF80 (L* 95, dropped) → red #F17770 (L* 64). */
 :root {
   --bg: #EDF0F7; --surface: #FFFFFF; --sunk: #E2E6F0; --ink: #13172A; --muted: #596079; --line: #CDD3E2;
   --accent: #2343C4; --accent-ink: #FFFFFF; --accent-soft: #DCE3FF;
+  --accent-2: #A30319; --accent-2-ink: #FFFFFF;
   --ok: #17804F; --ok-soft: #D9F2E6; --warn: #9A5B00; --warn-soft: #FCEBCB; --bad: #B42B42; --bad-soft: #FADDE2;
   --scrim: rgba(9, 11, 22, .94);
   --shadow: 0 1px 2px rgba(19, 23, 42, .06), 0 10px 28px -16px rgba(19, 23, 42, .28);
@@ -36,6 +42,7 @@
   :root:not([data-theme="light"]) {
     --bg: #0D1020; --surface: #151A2D; --sunk: #1C2239; --ink: #E5E8F4; --muted: #98A0BD; --line: #2A3152;
     --accent: #8099FF; --accent-ink: #0D1020; --accent-soft: #223060;
+    --accent-2: #F17770; --accent-2-ink: #0D1020;
     --ok: #4FC98F; --ok-soft: #173A2C; --warn: #EDA94A; --warn-soft: #3D2E14; --bad: #FF7088; --bad-soft: #40202A;
     --scrim: rgba(4, 5, 12, .96);
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 30px -16px rgba(0, 0, 0, .7);
@@ -45,6 +52,7 @@
 :root[data-theme="dark"] {
   --bg: #0D1020; --surface: #151A2D; --sunk: #1C2239; --ink: #E5E8F4; --muted: #98A0BD; --line: #2A3152;
   --accent: #8099FF; --accent-ink: #0D1020; --accent-soft: #223060;
+  --accent-2: #F17770; --accent-2-ink: #0D1020;
   --ok: #4FC98F; --ok-soft: #173A2C; --warn: #EDA94A; --warn-soft: #3D2E14; --bad: #FF7088; --bad-soft: #40202A;
   --scrim: rgba(4, 5, 12, .96);
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 30px -16px rgba(0, 0, 0, .7);
@@ -286,11 +294,22 @@ body.dragging .drop::after {
 /* Narrow cards (three across in a team row): icon-only Decklog link, no site pill, smaller crop. */
 .deck { container-type: inline-size; }
 @container (max-width: 470px) {
-  .deck-acts .btn-label { display: none; }
   .deck-head .pill.ok { display: none; }
   .deck-head { gap: 8px; padding: 8px 10px; }
   .crop { height: 46px; max-width: 104px; }
   .code { font-size: 17px; }
+}
+/* Cards too narrow for one row (team rows, small sizes, phones): the buttons get a row of their own, on every
+   card alike, so the deck pictures stay lined up and the Compare switch keeps its full width. */
+@container (max-width: 640px) {
+  .deck-head { flex-wrap: wrap; row-gap: 8px; }
+  .deck-head .deck-acts { flex-basis: 100%; }
+  .deck-acts .mark-wrap { margin-right: auto; }
+  .cmp-card .deck-head { flex-wrap: nowrap; }
+  .cmp-card .deck-head .deck-acts { flex-basis: auto; }
+}
+@container (max-width: 360px) {
+  .deck-acts .btn-label { display: none; }
 }
 .ph-title { font-weight: 600; }
 .ph-note { font-size: 12.5px; color: var(--muted); }
@@ -316,11 +335,75 @@ body.dragging .drop::after {
 .tabs button {
   display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; cursor: pointer;
   border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: transparent;
-  padding: 10px 14px; font: 600 14px var(--f-body); color: var(--muted);
+  padding: 10px 14px; font: 600 14px/20px var(--f-body); color: var(--muted);
 }
 .tabs button:hover { color: var(--ink); }
 .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
 .tab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+/* The count badge is shorter than the tab's 20px line, so the tab bar keeps its height when the Compare tab
+   comes and goes (a taller badge grew the bar by 1.8px and nudged the whole page on every tick). */
+.tab-count { min-width: 20px; height: 18px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 700 12px/18px var(--f-code); text-align: center; }
+.tabs button.arrive { animation: tab-in .5s ease-out; }
+@keyframes tab-in { from { opacity: 0; transform: translateY(-6px); } }
+
+/* ---------- compare: decks marked on their cards, side by side in their own tab */
+/* The Compare switch: a tick box with its label. Once ticked, a second segment in the contrast colour
+   (--accent-2) joins it on the right, with the Compare symbol (#td-mark); it opens the Compare tab. */
+.mark-wrap { display: inline-flex; flex: none; align-items: stretch; }
+.mark {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 112px;
+  padding: 6px 12px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line);
+  font-size: 13px; font-weight: 600; line-height: 1.2; white-space: nowrap; user-select: none;
+}
+.mark:hover { background: var(--sunk); }
+.mark-go {
+  display: none; place-items: center; width: 46px; padding: 0; cursor: pointer;
+  border: 1px solid var(--accent-2); border-left: 0; border-radius: 0 7px 7px 0;
+  background: var(--accent-2); color: var(--accent-2-ink); --ko: var(--accent-2);
+}
+.mark-go:hover { filter: brightness(1.12); }
+.mark-go svg { width: 26px; height: 26px; }
+.deck.marked .mark { border-radius: 7px 0 0 7px; }
+.deck.marked .mark-go { display: grid; }
+@media (pointer: coarse) { .mark { min-height: 38px; } .mark-go { width: 54px; } } /* bigger targets for fingers */
+.mark input, .cmp-sel input { margin: 0; width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.deck.marked { box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
+.deck.marked .mark { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.compare { display: grid; gap: 16px; padding-block: 4px 24px; }
+.cmp-head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 20px; justify-content: space-between; }
+.cmp-head h2 { margin: 0; font: 700 28px/1.15 var(--f-display); }
+.cmp-sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+.cmp-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cmp-grid { display: grid; gap: 16px; grid-template-columns: repeat(var(--cmp-n, 2), minmax(0, 1fr)); align-items: start; }
+.cmp-sel { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 7px; border: 1px solid var(--line); cursor: pointer; }
+.cmp-sel:hover { background: var(--sunk); }
+.cmp-card.selected { box-shadow: 0 0 0 2px var(--bad), var(--shadow); }
+.cmp-card.selected .cmp-sel { background: var(--bad-soft); border-color: var(--bad); }
+.cmp-card .cmp-sel input { accent-color: var(--bad); }
+.cmp-empty { aspect-ratio: 1200 / 884; display: grid; place-items: center; background: var(--sunk); color: var(--muted); font-size: 14px; padding: 16px; text-align: center; }
+.cmp-bar {
+  position: fixed; z-index: 40; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--accent); box-shadow: var(--shadow); font-size: 14px; font-weight: 600;
+  animation: tab-in .3s ease-out;
+}
+/* Room under the last deck for the Compare button. Kept for as long as any deck is listed, not just while one
+   is ticked, so ticking the first or last deck never changes the page height. */
+body.has-decks { padding-bottom: 96px; }
+/* The bar shows once the first deck is ticked; its button wears the same contrast red as the arrow part of a
+   ticked Compare button, and always opens the Compare tab. */
+#cmpBarGo { background: var(--accent-2); color: var(--accent-2-ink); --ko: var(--accent-2); gap: 8px; padding-block: 4px; }
+#cmpBarGo svg { width: 24px; height: 24px; }
+@media (max-width: 760px) {
+  .cmp-grid { grid-template-columns: 1fr; }
+  .cmp-cols { display: none !important; }
+}
+@media (max-width: 640px) {
+  .tabs button { padding: 10px 10px; gap: 6px; }
+  .tab-long { display: none; } /* "Guide & hotkeys" → "Guide": phones have no hotkeys, and four tabs then fit */
+  .cmp-bar { left: max(16px, env(safe-area-inset-left, 0px)); justify-content: space-between; }
+  body.cmp-on .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+}
 
 /* ---------- guide and FAQ */
 .doc { max-width: 860px; display: grid; gap: 22px; padding-block: 4px 24px; }
@@ -414,6 +497,25 @@ body.dragging .drop::after {
 </style>
 </head>
 <body>
+<!-- The Compare symbol (design "H2 · B", see DESIGN.md): three woven strands ending in three arrows, in a solid
+     hexagon turned 45°. The hexagon takes currentColor; the symbol and the cut line take --ko, the colour of the
+     button underneath, so they read as cut out of the hexagon. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="td-mark" viewBox="0 0 24 24">
+    <g transform="rotate(45 12 12)">
+      <path d="M12 .2L22.22 6.1V17.9L12 23.8L1.78 17.9V6.1Z" fill="currentColor"/>
+      <path d="M12 1.8L20.83 6.9V17.1L12 22.2L3.17 17.1V6.9Z" fill="none" style="stroke:var(--ko)" stroke-width=".9"/>
+      <g transform="translate(12 12) scale(.62) translate(-12 -11.7)" fill="none" stroke-width="2.4" stroke-linecap="butt" stroke-linejoin="round">
+        <path d="M7 21V16.6L17.8 10.2L17.56 9.23" style="stroke:var(--ko)"/>
+        <path d="M12 15.84V11.44" stroke="currentColor" stroke-width="5"/>
+        <path d="M12 21V6.2" style="stroke:var(--ko)"/>
+        <path d="M14.2 14.94L9.8 12.33" stroke="currentColor" stroke-width="5"/>
+        <path d="M17 21V16.6L6.2 10.2L6.44 9.23" style="stroke:var(--ko)"/>
+        <path d="M8.71 6.6L12 1.14L15.29 6.6Z M20.01 8.46L16.52 5.05L15.04 9.7Z M3.99 8.46L7.48 5.05L8.96 9.7Z" style="fill:var(--ko)" stroke="none"/>
+      </g>
+    </g>
+  </symbol>
+</svg>
 <div class="wrap">
   <header class="top">
     <div class="brand">
@@ -451,7 +553,8 @@ body.dragging .drop::after {
 
   <nav class="tabs" role="tablist" aria-label="Sections">
     <button type="button" role="tab" id="tab-scanner" data-view="scanner" aria-controls="view-scanner" aria-selected="true">Scanner<span class="tab-dot" hidden></span></button>
-    <button type="button" role="tab" id="tab-guide" data-view="guide" aria-controls="view-guide" aria-selected="false" tabindex="-1">Guide &amp; hotkeys</button>
+    <button type="button" role="tab" id="tab-compare" data-view="compare" aria-controls="view-compare" aria-selected="false" tabindex="-1" hidden>Compare<span class="tab-count" id="cmpTabCount">0</span></button>
+    <button type="button" role="tab" id="tab-guide" data-view="guide" aria-controls="view-guide" aria-selected="false" tabindex="-1"><span>Guide<span class="tab-long"> &amp; hotkeys</span></span></button>
     <button type="button" role="tab" id="tab-faq" data-view="faq" aria-controls="view-faq" aria-selected="false" tabindex="-1">FAQ</button>
   </nav>
 
@@ -495,6 +598,29 @@ body.dragging .drop::after {
   <div id="sources"></div>
   </div>
 
+  <!-- ================= Compare: shown while at least one deck is marked ================= -->
+  <section class="compare" id="view-compare" role="tabpanel" aria-labelledby="tab-compare" hidden>
+    <div class="cmp-head">
+      <div>
+        <h2>Compare decks</h2>
+        <p class="cmp-sub" id="cmpSub"></p>
+      </div>
+      <div class="cmp-tools">
+        <span class="seg-label cmp-cols" id="cmpColsLabel">Per row</span>
+        <div class="seg cmp-cols" role="radiogroup" aria-labelledby="cmpColsLabel" id="cmpCols">
+          <button type="button" role="radio" data-n="1" aria-checked="false">1</button>
+          <button type="button" role="radio" data-n="2" aria-checked="true">2</button>
+          <button type="button" role="radio" data-n="3" aria-checked="false">3</button>
+          <button type="button" role="radio" data-n="4" aria-checked="false">4</button>
+        </div>
+        <button class="btn ghost small" type="button" id="cmpSelAll">Select all</button>
+        <button class="btn ghost small" type="button" id="cmpUnmarkSel" disabled>Unmark selected</button>
+        <button class="btn ghost small" type="button" id="cmpUnmarkAll">Unmark all</button>
+      </div>
+    </div>
+    <div class="cmp-grid" id="cmpGrid"></div>
+  </section>
+
   <!-- ================= Guide ================= -->
   <section class="doc" id="view-guide" role="tabpanel" aria-labelledby="tab-guide" hidden>
     <div>
@@ -524,6 +650,15 @@ body.dragging .drop::after {
         <li><span class="sample"><span class="pill">Snapshot</span></span><span>Click a deck picture to enlarge it, then flip through every deck with the arrow keys.</span></li>
         <li><span class="sample"><span class="pill">Copy links</span></span><span>Puts every deck on the clipboard, one per line, with its placement and seed.</span></li>
       </ul>
+    </div>
+
+    <div class="doc-card">
+      <h3>Compare decks side by side</h3>
+      <ol class="steps">
+        <li><div><b>Tick “Compare”</b> on each deck you want to compare; tick it again to switch it off. The deck gets a blue outline, and a <b>Compare</b> tab appears next to Scanner, showing how many decks are marked.</div></li>
+        <li><div><b>Open the Compare tab</b>: click the red hexagon symbol that appears on the right of a ticked “Compare” button, the red <b>Compare</b> button at the bottom of the screen, or the tab itself. The marked decks sit side by side; choose 1 to 4 per row. Click a deck to enlarge it, then use <kbd>←</kbd> / <kbd>→</kbd> to flip through the marked decks only. “Find” jumps back to the deck in the Scanner tab.</div></li>
+        <li><div><b>To remove decks</b>, tick them in the Compare tab and press <b>Unmark selected</b>, or press <b>Unmark all</b> (twice, to confirm). You can also untick “Compare” on the deck card. The tab disappears when no deck is marked.</div></li>
+      </ol>
     </div>
 
     <div class="doc-card">
@@ -574,6 +709,8 @@ body.dragging .drop::after {
       <div class="qa"><h4>A code is missing or “Not found on Decklog”. What now?</h4><p>Every card for a code that couldn't be confirmed has a box where you type the code from the picture and press Look up. Where a look-alike code exists, it's offered with its deck picture to pick. A seat where no code was read at all shows an empty card in its place between the other decks, with the same box, and so does a picture where nothing was read. You can also use “Rescan an area” and drag a box around the code on the image.</p></div>
       <div class="qa"><h4>Why is a code shown as a choice between two decks?</h4><p>Sometimes two different readings of a blurry code both exist on Decklog. Rather than guess, the app shows both with their deck pictures; pick the one that matches the picture.</p></div>
       <div class="qa"><h4>Why are numbers like 13000 ignored?</h4><p>Those are card power values printed on the card art. Decklog codes are 5 or 6 letters and digits, never digits only, and never contain the letters O or I.</p></div>
+      <div class="qa"><h4>How do I compare decks side by side?</h4><p>Tick “Compare” on the deck cards you want. A Compare tab appears between Scanner and Guide &amp; hotkeys. To get there, click the red hexagon symbol on the right of any ticked Compare button, or the red Compare button at the bottom of the screen. Decks you mark from different images and teams all collect in the same tab. Marks last until you reload the page.</p></div>
+      <div class="qa"><h4>How do I take decks out of the comparison?</h4><p>In the Compare tab, tick the decks to remove and press Unmark selected, or press Unmark all. Unticking “Compare” on a deck card works too. Unmarking doesn't remove the deck from the Scanner tab.</p></div>
       <div class="qa"><h4>What does the JP / EN switch do?</h4><p>Japanese and English Decklog are separate sites with separate codes. Use EN for codes from decklog-en.bushiroad.com.</p></div>
     </div>
 
@@ -592,7 +729,7 @@ body.dragging .drop::after {
       <div class="qa hosted-only" hidden><h4>Where do I get the Mac app?</h4><p><a href="Vanguard%20Deck%20Scanner%20for%20Mac.zip" download>Download Vanguard Deck Scanner for Mac (zip)</a>. Unzip it, move the app to Applications and allow it once, as described below.</p></div>
       <div class="qa"><h4>The Mac app says Apple can't check it for malware. Is it safe?</h4><p>That message appears for every app that isn't signed with a paid Apple developer certificate. Allow it once: on macOS 15 or newer, open System Settings → Privacy &amp; Security and click Open Anyway; on older versions, right-click the app, choose Open, then Open again. Inside the app is a short launcher script and this page, and you can read both (right-click the app → Show Package Contents). If you'd rather not approve anything, open the .html file instead: it runs inside your browser with no prompt.</p></div>
       <div class="qa"><h4>Are my images uploaded anywhere?</h4><p>No. Text is read inside your browser. Only the deck codes go to Decklog, to fetch the deck pictures. For an X link, the post's number goes to FxTwitter, a free public service that lists the post's pictures, and the pictures download from X's own image server. The text reader itself (about 5 MB) downloads once from jsDelivr. On the website copy, anonymous visit counts go to GoatCounter (see the next question).</p></div>
-      <div class="qa"><h4>Does it count visitors?</h4><p>Only the website copy (feii888.github.io). It counts visits and a few actions, such as “scan started”, “X link used” or “every code found”, with GoatCounter, so its maker can see how much it gets used. It sets no cookies and doesn't record who you are; pictures, deck codes and links are never sent. GoatCounter only sees what any website sees: the browser, screen size, country and the page you came from. The downloaded .html file and the Mac app count nothing.</p></div>
+      <div class="qa"><h4>Does it count visitors?</h4><p>Only the website copy (feii888.github.io). It counts visits and a few actions, such as “scan started”, “X link used” or “every code found”, with GoatCounter, so its maker can see how much it gets used. For an X link, it also records which post was scanned (the post's public address, such as x.com/account/status/number). It sets no cookies and doesn't record who you are; pictures, deck codes and other links are never sent. GoatCounter only sees what any website sees: the browser, screen size, country and the page you came from. The downloaded .html file and the Mac app count nothing.</p></div>
       <div class="qa"><h4>Does it need an internet connection?</h4><p>Yes: for the text reader on first use, and for the deck pictures from Decklog.</p></div>
       <div class="qa"><h4>How do I update the app?</h4><p>Replace index.html with the new file and reload: <kbd>F5</kbd> on Windows, <kbd>⌘ Cmd</kbd>+<kbd>R</kbd> on Mac. Images on screen are cleared by a reload, so add them again.</p></div>
     </div>
@@ -613,6 +750,10 @@ body.dragging .drop::after {
     <div id="lbImg" style="display:contents"></div>
     <button class="lb-nav lb-next" type="button" id="lbNext" aria-label="Next deck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
   </div>
+</div>
+<div class="cmp-bar" id="cmpBar" hidden>
+  <span id="cmpBarText">1 deck marked</span>
+  <button class="btn" type="button" id="cmpBarGo">Compare<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#td-mark"/></svg></button>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -682,6 +823,8 @@ const ICON = {
   copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>',
   x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  drive: '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#td-mark"/></svg>', // the Compare symbol, defined at the top of <body>
+
 };
 const icon = name => { const s = h('span', { style: 'display:contents' }); s.innerHTML = ICON[name]; return s.firstChild; };
 const store = {
@@ -727,12 +870,15 @@ const state = {
   tray: [],
   view: 'scanner',
   sources: [],
+  compare: [], // decks marked for the Compare tab, in the order they were marked
+  cmpCols: ['1', '2', '3', '4'].includes(store.get('cmpCols')) ? store.get('cmpCols') : '2',
 };
 let nextId = 1;
 
 /* ================= anonymous usage counts (hosted page only) ================= */
 // The page at feii888.github.io counts visits and a few app actions with GoatCounter: no cookies, nothing
-// personal, and never pictures, deck codes or links. Local copies (the .html file, the Mac app) count nothing.
+// personal, and never pictures or deck codes. The one link it records is a scanned X post's public address.
+// Local copies (the .html file, the Mac app) count nothing.
 const COUNTER = 'https://feii888.goatcounter.com/count';
 const COUNTED = location.protocol === 'https:' && location.hostname === 'feii888.github.io';
 const pendingCounts = [];
@@ -1271,11 +1417,13 @@ function removeDeck(d) {
   const src = d.source;
   src.decks = src.decks.filter(x => x !== d);
   if (d.el) d.el.remove();
+  if (d.marked) queueCompare();
   if (src.kind === 'manual' && !src.decks.length) return removeSource(src);
   layout(src);
 }
 function removeSource(src) {
   src.decks.forEach(d => { d.removed = true; d.token++; });
+  if (src.decks.some(d => d.marked)) queueCompare();
   if (src.url) URL.revokeObjectURL(src.url);
   src.el.section.remove();
   state.sources = state.sources.filter(s => s !== src);
@@ -1831,6 +1979,7 @@ function layoutNow(src) {
   drawBoxes(src);
   updateHead(src);
   updateSummary();
+  if (src.decks.some(d => d.marked)) queueCompare(); // codes, placements and seats show in the Compare tab too
 }
 
 function teamSection(src, t) {
@@ -1964,12 +2113,27 @@ function buildCard(d) {
     ? h('span', { class: 'pill warn', title: 'The first reading had no deck on Decklog. Compare the code with the crop on the left.' }, `First read as ${d.fixedFrom}`)
     : h('span', { class: 'pill ok' }, SITES[site].label));
   const shot = h('button', { class: 'shot', type: 'button', 'aria-label': `Enlarge deck ${d.code}`, onclick: () => openLb(d) }, d.img.cloneNode());
-  return h('article', { class: 'deck', id: 'deck-' + d.id },
+  // Tick to collect this deck in the Compare tab.
+  const mark = h('input', { type: 'checkbox', 'aria-label': `Mark ${d.code} for comparison` });
+  mark.checked = !!d.marked;
+  mark.addEventListener('change', () => {
+    // Hold the clicked button still: whatever else changes on the page, it stays under the pointer.
+    const before = mark.getBoundingClientRect().top;
+    setMarked(d, mark.checked);
+    const moved = mark.getBoundingClientRect().top - before;
+    if (Math.abs(moved) >= 0.5) window.scrollBy(0, moved);
+  });
+  const go = h('button', { class: 'mark-go', type: 'button', title: 'Open the Compare tab', 'aria-label': 'Open the Compare tab' }, icon('drive'));
+  go.addEventListener('click', () => goView('compare'));
+  return h('article', { class: 'deck' + (d.marked ? ' marked' : ''), id: 'deck-' + d.id },
     h('div', { class: 'deck-head' },
       h('span', { class: 'num' }), deckCrop(d),
       h('div', { class: 'id' }, codeButton(d), pills),
       h('div', { class: 'deck-acts' },
-        h('a', { class: 'btn ghost small', href: viewUrl(d.code, site), target: '_blank', rel: 'noopener', title: 'Open this deck on Decklog', 'aria-label': `Open ${d.code} on Decklog` }, h('span', { class: 'btn-label' }, 'Decklog'), icon('ext')),
+        h('span', { class: 'mark-wrap' },
+          h('label', { class: 'mark', title: 'Mark this deck for the Compare tab' }, mark, h('span', { class: 'mark-label' }, 'Compare')),
+          go),
+        h('a',{ class: 'btn ghost small', href: viewUrl(d.code, site), target: '_blank', rel: 'noopener', title: 'Open this deck on Decklog', 'aria-label': `Open ${d.code} on Decklog` }, h('span', { class: 'btn-label' }, 'Decklog'), icon('ext')),
         h('button', { class: 'btn ghost small icon', type: 'button', title: 'Copy Decklog link', 'aria-label': `Copy link for ${d.code}`, onclick: async () => toast(await copyText(viewUrl(d.code, site)) ? 'Link copied' : 'Couldn’t copy') }, icon('copy')),
         h('button', { class: 'btn ghost small icon', type: 'button', title: 'Remove', 'aria-label': `Remove deck ${d.code}`, onclick: () => removeDeck(d) }, icon('x')))),
     shot);
@@ -2084,6 +2248,7 @@ function allFound() {
 function updateSummary() {
   const found = allFound(), any = state.sources.some(s => s.decks.length || s.busy);
   $('#summary').hidden = !any;
+  document.body.classList.toggle('has-decks', found.length > 0);
   const images = state.sources.filter(s => s.kind === 'image');
   const busy = images.filter(s => s.busy).length;
   const pending = state.sources.reduce((n, s) => n + s.decks.filter(d => d.status === 'checking').length, 0);
@@ -2105,6 +2270,90 @@ function updateChrome() {
   $('#dropTitle').textContent = n ? `${plural(n, 'image')} ready to scan` : hasImage ? 'Add more images' : state.sources.length ? 'Add images' : 'Paste or drop results images';
   $('#drop').dataset.dropLabel = state.auto ? 'Drop to scan' : 'Drop to add';
   updateTabDot();
+}
+
+/* ================= compare =================
+   Tick "Compare" on any deck card. The Compare tab (between Scanner and Guide) appears while at least one
+   deck is marked, with a button at the bottom of the screen that goes straight to it. In the tab, decks
+   sit side by side; tick decks there and press "Unmark selected", or "Unmark all". */
+const cmpSel = new Set(); // deck ids ticked inside the Compare tab, for "Unmark selected"
+let cmpQueued = false;
+function queueCompare() {
+  if (cmpQueued) return;
+  cmpQueued = true;
+  queueMicrotask(() => { cmpQueued = false; renderCompare(); });
+}
+function syncMark(d) {
+  if (!d.el) return;
+  d.el.classList.toggle('marked', !!d.marked);
+  const box = d.el.querySelector('.mark input');
+  if (box) box.checked = !!d.marked;
+}
+function setMarked(d, on) {
+  if (!!d.marked === on) return;
+  d.marked = on;
+  if (on) state.compare.push(d); else cmpSel.delete(d.id);
+  syncMark(d);
+  renderCompare();
+}
+function unmarkDecks(list) {
+  list.forEach(d => { d.marked = false; cmpSel.delete(d.id); syncMark(d); });
+  renderCompare();
+}
+function compareCard(d) {
+  const site = siteOf(d), tag = tagFor(d), where = imageTitle(d.source);
+  const sig = [d.status, d.code, site, tag, where].join('|');
+  if (d.cmpEl && d.cmpSig === sig) return d.cmpEl;
+  const sel = h('input', { type: 'checkbox', 'aria-label': `Select ${d.code}` });
+  sel.addEventListener('change', () => { if (sel.checked) cmpSel.add(d.id); else cmpSel.delete(d.id); syncCompareTools(); });
+  const shot = d.status === 'found' && d.img
+    ? h('button', { class: 'shot', type: 'button', 'aria-label': `Enlarge deck ${d.code}`, onclick: () => openLb(d, state.compare.filter(x => x.status === 'found' && x.img)) }, d.img.cloneNode())
+    : h('div', { class: 'cmp-empty' }, d.status === 'checking' ? `Checking ${SITES[site].label}…` : `No snapshot on ${SITES[site].label}. Fix the code in the Scanner tab.`);
+  const el = h('article', { class: 'deck cmp-card' },
+    h('div', { class: 'deck-head' },
+      h('label', { class: 'cmp-sel', title: 'Select this deck, then press Unmark selected' }, sel),
+      h('div', { class: 'id' },
+        h('span', { class: 'code', style: 'cursor:default' }, d.code),
+        h('div', { class: 'pills' }, tag ? h('span', { class: 'tag' }, tag) : null, h('span', { class: 'pill' }, where))),
+      h('div', { class: 'deck-acts' },
+        h('button', { class: 'btn ghost small', type: 'button', title: 'Show this deck in the Scanner tab', onclick: () => { goView('scanner'); requestAnimationFrame(() => focusEl(d.el)); } }, h('span', { class: 'btn-label' }, 'Find'), '↩'),
+        h('a', { class: 'btn ghost small', href: viewUrl(d.code, site), target: '_blank', rel: 'noopener', title: 'Open this deck on Decklog', 'aria-label': `Open ${d.code} on Decklog` }, h('span', { class: 'btn-label' }, 'Decklog'), icon('ext')))),
+    shot);
+  d.cmpEl = el; d.cmpSig = sig;
+  return el;
+}
+function syncCompareTools() {
+  const list = state.compare, n = list.length;
+  for (const d of list) if (d.cmpEl) {
+    const on = cmpSel.has(d.id);
+    d.cmpEl.classList.toggle('selected', on);
+    d.cmpEl.querySelector('.cmp-sel input').checked = on;
+  }
+  const k = cmpSel.size;
+  $('#cmpUnmarkSel').disabled = !k;
+  $('#cmpUnmarkSel').textContent = k ? `Unmark selected (${k})` : 'Unmark selected';
+  $('#cmpSelAll').textContent = n && k === n ? 'Clear selection' : 'Select all';
+  $('#cmpSub').textContent = `${plural(n, 'deck')} marked${k ? ` · ${k} selected` : ''}. Click a deck to enlarge it; the arrow keys then flip through the marked decks only.`;
+  const bar = $('#cmpBar');
+  bar.hidden = !n || state.view !== 'scanner';
+  $('#cmpBarText').textContent = `${plural(n, 'deck')} marked`;
+  document.body.classList.toggle('cmp-on', !bar.hidden);
+}
+function renderCompare() {
+  state.compare = state.compare.filter(d => d.marked && !d.removed);
+  [...cmpSel].forEach(id => { if (!state.compare.some(d => d.id === id)) cmpSel.delete(id); });
+  const n = state.compare.length, tab = $('#tab-compare');
+  if (n && tab.hidden) { tab.hidden = false; tab.classList.remove('arrive'); void tab.offsetWidth; tab.classList.add('arrive'); }
+  tab.hidden = !n;
+  $('#cmpTabCount').textContent = String(n);
+  syncChildren($('#cmpGrid'), state.compare.map(compareCard));
+  syncCompareTools();
+  if (!n && state.view === 'compare') goView('scanner');
+}
+function setCmpCols(n) {
+  state.cmpCols = n; store.set('cmpCols', n);
+  $('#cmpGrid').style.setProperty('--cmp-n', n);
+  $('#cmpCols').querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.n === n)));
 }
 
 /* ================= editing & look-alikes ================= */
@@ -2273,12 +2522,16 @@ async function importPictures(urls, label) {
 async function importXPost(id) {
   toast('Getting the pictures from that X post…');
   const info = await fetchXPhotos(id);
-  const failedLink = () => track('x-link-failed', 'X link: no pictures could be loaded');
+  const failedLink = () => { track('x-link-failed', 'X link: no pictures could be loaded'); track(`x-post-failed/${id}`, `https://x.com/i/status/${id}`); };
   if (!info) { failedLink(); toast('Couldn’t reach X right now. Open the post, right-click a picture → Copy image, and paste it here.'); return; }
   if (info.missing) { failedLink(); toast('That X post can’t be read. It may be deleted, from a protected account, or age-restricted.'); return; }
   if (!info.photos.length) { failedLink(); toast(`That post${info.author ? ` by @${info.author}` : ''} has no pictures to scan.`); return; }
   const failed = await importPictures(info.photos, `@${info.author || 'X post'}`);
-  if (failed < info.photos.length) track('x-link', 'X link: pictures loaded'); else failedLink();
+  if (failed < info.photos.length) {
+    // The total, plus one row per post (a public post's account and number) so the dashboard shows which posts get scanned.
+    track('x-link', 'X link: pictures loaded');
+    track(`x-post/@${info.author || 'unknown'}/${id}`, `https://x.com/${info.author || 'i'}/status/${id}`);
+  } else failedLink();
   if (failed) toast(`${plural(failed, 'picture')} from that post couldn’t be downloaded. Copy ${failed > 1 ? 'them' : 'it'} from X and paste instead.`);
 }
 // Link addresses hidden behind copied link text: <a href> and <img src> in the copied HTML.
@@ -2339,8 +2592,9 @@ async function copyAll(link) {
 
 /* ================= lightbox ================= */
 const lb = { list: [], i: 0, back: null };
-function openLb(d) {
-  lb.list = allFound(); lb.i = Math.max(0, lb.list.indexOf(d)); lb.back = document.activeElement;
+// `list`: the decks the arrows step through (every found deck, or only the marked ones from the Compare tab).
+function openLb(d, list) {
+  lb.list = list || allFound(); lb.i = Math.max(0, lb.list.indexOf(d)); lb.back = document.activeElement;
   $('#lb').hidden = false; document.body.classList.add('lb-open');
   showLb(); $('#lbClose').focus();
 }
@@ -2410,9 +2664,11 @@ document.addEventListener('keydown', e => {
 });
 
 /* ================= tabs: Scanner, Guide & hotkeys, FAQ ================= */
-const VIEWS = ['scanner', 'guide', 'faq'];
+const VIEWS = ['scanner', 'compare', 'guide', 'faq'];
+const VIEW_TITLES = { compare: 'Opened Compare', guide: 'Opened Guide & hotkeys', faq: 'Opened FAQ' };
+const shownViews = () => VIEWS.filter(v => !$('#tab-' + v).hidden);
 function showView(view) {
-  if (!VIEWS.includes(view)) view = 'scanner';
+  if (!VIEWS.includes(view) || (view === 'compare' && !state.compare.length)) view = 'scanner';
   const changed = state.view !== view;
   state.view = view;
   VIEWS.forEach(v => {
@@ -2421,8 +2677,9 @@ function showView(view) {
     $('#view-' + v).hidden = v !== view;
   });
   if (changed && view !== 'scanner') window.scrollTo(0, 0);
-  if (changed && view !== 'scanner') track('opened-' + view, view === 'guide' ? 'Opened Guide & hotkeys' : 'Opened FAQ');
+  if (changed && view !== 'scanner') track('opened-' + view, VIEW_TITLES[view]);
   updateTabDot();
+  syncCompareTools(); // the quick Compare button shows on the Scanner tab only
 }
 // Views are plain #hashes, so a link like index.html#guide opens the guide.
 function goView(view) {
@@ -2445,9 +2702,34 @@ $('.tabs').addEventListener('click', e => { const b = e.target.closest('[data-vi
 $('.tabs').addEventListener('keydown', e => {
   if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
   e.preventDefault();
-  const v = VIEWS[(VIEWS.indexOf(state.view) + (e.key === 'ArrowRight' ? 1 : -1) + VIEWS.length) % VIEWS.length];
+  const views = shownViews();
+  const v = views[(views.indexOf(state.view) + (e.key === 'ArrowRight' ? 1 : -1) + views.length) % views.length];
   goView(v); $('#tab-' + v).focus();
 });
+$('#cmpBarGo').addEventListener('click', () => goView('compare'));
+$('#cmpCols').addEventListener('click', e => { const b = e.target.closest('button[data-n]'); if (b) setCmpCols(b.dataset.n); });
+$('#cmpSelAll').addEventListener('click', () => {
+  const all = cmpSel.size === state.compare.length;
+  cmpSel.clear();
+  if (!all) state.compare.forEach(d => cmpSel.add(d.id));
+  syncCompareTools();
+});
+$('#cmpUnmarkSel').addEventListener('click', () => {
+  const list = state.compare.filter(d => cmpSel.has(d.id));
+  if (!list.length) return;
+  unmarkDecks(list);
+  toast(`Unmarked ${plural(list.length, 'deck')}`);
+});
+let unmarkArmed = null;
+$('#cmpUnmarkAll').addEventListener('click', e => {
+  const b = e.currentTarget;
+  if (!unmarkArmed) { b.textContent = 'Click again to unmark all'; unmarkArmed = setTimeout(() => { unmarkArmed = null; b.textContent = 'Unmark all'; }, 2500); return; }
+  clearTimeout(unmarkArmed); unmarkArmed = null; b.textContent = 'Unmark all';
+  const n = state.compare.length;
+  unmarkDecks([...state.compare]);
+  toast(`Unmarked ${plural(n, 'deck')}`);
+});
+setCmpCols(state.cmpCols);
 
 // Shortcut names for this computer in the page's own hints; the Guide table highlights the matching column.
 function applyPlatform() {
