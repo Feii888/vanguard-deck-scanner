@@ -12,3 +12,7 @@ Open it: https://feii888.github.io/vanguard-deck-scanner/
 
 Images are read on your own device and are not uploaded anywhere. Deck pictures come from Decklog;
 X post pictures are looked up through FxTwitter. The text reader (Tesseract.js) loads from jsDelivr.
+
+The website copy counts visits and a few app actions (such as "scan started" or "X link used") with
+[GoatCounter](https://www.goatcounter.com/): no cookies, nothing personal, and never pictures, deck codes
+or links. The downloaded `index.html` and the Mac app count nothing.

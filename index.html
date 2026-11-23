@@ -591,7 +591,8 @@ body.dragging .drop::after {
       <div class="qa hosted-only" hidden><h4>Can I put it on my phone's Home Screen?</h4><p>Yes. On iPhone or iPad, open this page in Safari, tap Share, then <i>Add to Home Screen</i>. On Android, open it in Chrome and choose <i>Add to Home screen</i> or <i>Install app</i> from the menu. It then opens full-screen like an app. Pick photos with <i>Choose images</i>, or paste pictures and links into the box at the top.</p></div>
       <div class="qa hosted-only" hidden><h4>Where do I get the Mac app?</h4><p><a href="Vanguard%20Deck%20Scanner%20for%20Mac.zip" download>Download Vanguard Deck Scanner for Mac (zip)</a>. Unzip it, move the app to Applications and allow it once, as described below.</p></div>
       <div class="qa"><h4>The Mac app says Apple can't check it for malware. Is it safe?</h4><p>That message appears for every app that isn't signed with a paid Apple developer certificate. Allow it once: on macOS 15 or newer, open System Settings → Privacy &amp; Security and click Open Anyway; on older versions, right-click the app, choose Open, then Open again. Inside the app is a short launcher script and this page, and you can read both (right-click the app → Show Package Contents). If you'd rather not approve anything, open the .html file instead: it runs inside your browser with no prompt.</p></div>
-      <div class="qa"><h4>Are my images uploaded anywhere?</h4><p>No. Text is read inside your browser. Only the deck codes go to Decklog, to fetch the deck pictures. For an X link, the post's number goes to FxTwitter, a free public service that lists the post's pictures, and the pictures download from X's own image server. The text reader itself (about 5 MB) downloads once from jsDelivr.</p></div>
+      <div class="qa"><h4>Are my images uploaded anywhere?</h4><p>No. Text is read inside your browser. Only the deck codes go to Decklog, to fetch the deck pictures. For an X link, the post's number goes to FxTwitter, a free public service that lists the post's pictures, and the pictures download from X's own image server. The text reader itself (about 5 MB) downloads once from jsDelivr. On the website copy, anonymous visit counts go to GoatCounter (see the next question).</p></div>
+      <div class="qa"><h4>Does it count visitors?</h4><p>Only the website copy (feii888.github.io). It counts visits and a few actions, such as “scan started”, “X link used” or “every code found”, with GoatCounter, so its maker can see how much it gets used. It sets no cookies and doesn't record who you are; pictures, deck codes and links are never sent. GoatCounter only sees what any website sees: the browser, screen size, country and the page you came from. The downloaded .html file and the Mac app count nothing.</p></div>
       <div class="qa"><h4>Does it need an internet connection?</h4><p>Yes: for the text reader on first use, and for the deck pictures from Decklog.</p></div>
       <div class="qa"><h4>How do I update the app?</h4><p>Replace index.html with the new file and reload: <kbd>F5</kbd> on Windows, <kbd>⌘ Cmd</kbd>+<kbd>R</kbd> on Mac. Images on screen are cleared by a reload, so add them again.</p></div>
     </div>
@@ -728,6 +729,27 @@ const state = {
   sources: [],
 };
 let nextId = 1;
+
+/* ================= anonymous usage counts (hosted page only) ================= */
+// The page at feii888.github.io counts visits and a few app actions with GoatCounter: no cookies, nothing
+// personal, and never pictures, deck codes or links. Local copies (the .html file, the Mac app) count nothing.
+const COUNTER = 'https://feii888.goatcounter.com/count';
+const COUNTED = location.protocol === 'https:' && location.hostname === 'feii888.github.io';
+const pendingCounts = [];
+function track(path, title) {
+  (track.log = track.log || []).push(path); if (track.log.length > 50) track.log.shift(); // for local testing
+  if (!COUNTED) return;
+  const send = () => { try { window.goatcounter.count({ path, title: title || path, event: true }); } catch { /* blocked or offline */ } };
+  if (window.goatcounter && window.goatcounter.count) send(); else if (pendingCounts.length < 50) pendingCounts.push(send);
+}
+function startCounting() {
+  if (!COUNTED) return;
+  const s = document.createElement('script');
+  s.async = true; s.src = 'https://gc.zgo.at/count.js'; s.dataset.goatcounter = COUNTER;
+  s.onload = () => { while (pendingCounts.length) pendingCounts.shift()(); };
+  document.head.append(s);
+}
+
 const siteOf = d => d.site || state.site;
 const snapUrl = (code, site) => `${SITES[site].host}/deckimages/${encodeURIComponent(code)}.png`;
 const viewUrl = (code, site) => `${SITES[site].host}/view/${encodeURIComponent(code)}`;
@@ -1056,6 +1078,7 @@ function clearTray() {
 function scanTray() {
   const items = state.tray.splice(0);
   renderTray();
+  if (items.length) track(state.format === 'trio' ? 'scan-teams' : 'scan-solo', state.format === 'trio' ? 'Scan started (Teams of 3)' : 'Scan started (Solo)');
   items.forEach((item, i) => addImageSource(item, i === 0));
 }
 
@@ -1117,6 +1140,11 @@ async function scan(src, rect, isRegion) {
       if (confirmed.some(d => d.bbox)) src.codeH = median(confirmed.filter(d => d.bbox).map(hOf));
       // Placement banners only exist on results graphics, not on single-deck pictures.
       if (src.format === 'trio' && !isSingleDeck(src)) { src.phase = 'Looking for placement labels…'; layout(src); await findLabels(src); }
+      if (src.scans === 1) {
+        const unsure = src.decks.some(d => d.status !== 'found' && !d.hidden && !d.removed);
+        track(!confirmed.length ? 'picture-no-codes' : unsure ? 'picture-some-unsure' : 'picture-all-found',
+          !confirmed.length ? 'Picture scanned: no deck found' : unsure ? 'Picture scanned: some codes need a look' : 'Picture scanned: every code found');
+      }
     }
     const added = src.decks.length - before;
     if (isRegion) toast(added ? `Found ${plural(added, 'new code')} in that area` : (items.length ? 'Nothing new in that area' : 'No code found in that area. Try a slightly bigger box, or type it in.'));
@@ -1851,7 +1879,7 @@ function codeForm(label, use) {
     e.preventDefault();
     const v = normCode(input.value);
     if (!CODE_RE.test(v)) { toast('Decklog codes are 5 or 6 letters and digits'); input.focus(); return; }
-    if (use(v) !== false) input.value = '';
+    if (use(v) !== false) { input.value = ''; track('code-typed-in', 'Code typed into a seat or card'); }
   });
   return form;
 }
@@ -1959,7 +1987,7 @@ function buildChip(d) {
         ? 'One look-alike code exists. Use it if it matches the image:'
         : `${d.alts.hits.length} look-alike codes exist. Pick the one that matches the image:`),
       d.alts.hits.slice(0, 8).map(code => {
-        const btn = h('button', { class: 'alt', type: 'button', title: `Use ${code}`, onclick: () => { d.fixedFrom = d.fixedFrom || d.read; d.code = code; checkDeck(d); } }, h('span', null, code));
+        const btn = h('button', { class: 'alt', type: 'button', title: `Use ${code}`, onclick: () => { d.fixedFrom = d.fixedFrom || d.read; d.code = code; checkDeck(d); track('lookalike-picked', 'Look-alike code picked'); } }, h('span', null, code));
         probe(code, site).then(img => { if (img) btn.prepend(img.cloneNode()); });
         return btn;
       }));
@@ -2085,6 +2113,7 @@ function startEdit(d, btn) {
     if (commit && v && v !== d.code) {
       if (d.bbox) { d.fixedFrom = d.fixedFrom || d.read; if (v === d.read) d.fixedFrom = null; }
       d.code = v; checkDeck(d);
+      track('code-edited', 'Code corrected by clicking it');
     } else if (inp.isConnected) inp.replaceWith(btn);
   };
   inp.addEventListener('keydown', e => {
@@ -2240,10 +2269,12 @@ async function importPictures(urls, label) {
 async function importXPost(id) {
   toast('Getting the pictures from that X post…');
   const info = await fetchXPhotos(id);
-  if (!info) { toast('Couldn’t reach X right now. Open the post, right-click a picture → Copy image, and paste it here.'); return; }
-  if (info.missing) { toast('That X post can’t be read. It may be deleted, from a protected account, or age-restricted.'); return; }
-  if (!info.photos.length) { toast(`That post${info.author ? ` by @${info.author}` : ''} has no pictures to scan.`); return; }
+  const failedLink = () => track('x-link-failed', 'X link: no pictures could be loaded');
+  if (!info) { failedLink(); toast('Couldn’t reach X right now. Open the post, right-click a picture → Copy image, and paste it here.'); return; }
+  if (info.missing) { failedLink(); toast('That X post can’t be read. It may be deleted, from a protected account, or age-restricted.'); return; }
+  if (!info.photos.length) { failedLink(); toast(`That post${info.author ? ` by @${info.author}` : ''} has no pictures to scan.`); return; }
   const failed = await importPictures(info.photos, `@${info.author || 'X post'}`);
+  if (failed < info.photos.length) track('x-link', 'X link: pictures loaded'); else failedLink();
   if (failed) toast(`${plural(failed, 'picture')} from that post couldn’t be downloaded. Copy ${failed > 1 ? 'them' : 'it'} from X and paste instead.`);
 }
 // Link addresses hidden behind copied link text: <a href> and <img src> in the copied HTML.
@@ -2284,6 +2315,7 @@ function addManual(list) {
     if (d) { added++; checkDeck(d); }
   }
   updateChrome();
+  if (added) track('codes-added', 'Codes added by typing or a Decklog link');
   if (!added) toast('Already in the list');
   requestAnimationFrame(() => requestAnimationFrame(() => src.el.section.scrollIntoView({ behavior: 'smooth', block: 'nearest' })));
 }
@@ -2385,6 +2417,7 @@ function showView(view) {
     $('#view-' + v).hidden = v !== view;
   });
   if (changed && view !== 'scanner') window.scrollTo(0, 0);
+  if (changed && view !== 'scanner') track('opened-' + view, view === 'guide' ? 'Opened Guide & hotkeys' : 'Opened FAQ');
   updateTabDot();
 }
 // Views are plain #hashes, so a link like index.html#guide opens the guide.
@@ -2434,7 +2467,11 @@ function applyPlatform() {
       h('link', { rel: 'icon', type: 'image/png', sizes: '192x192', href: 'icon-192.png' }));
     document.querySelectorAll('.hosted-only').forEach(e => { e.hidden = false; });
   }
+  startCounting();
 }
+document.addEventListener('click', e => {
+  if (e.target.closest && e.target.closest('a[href$="for%20Mac.zip"]')) track('mac-app-download', 'Mac app downloaded');
+});
 applyPlatform();
 showView(location.hash.slice(1));
 $('#fileInput').addEventListener('change', e => { const files = [...e.target.files]; e.target.value = ''; handleFiles(files); });
@@ -2494,7 +2531,7 @@ setTimeout(prewarm, 300);
 
 // Test hook: load an image from a URL this page can read (same folder / local server).
 window.__vds = {
-  CFG, state, readWords, extractItems, analyzeGrid,
+  CFG, state, readWords, extractItems, analyzeGrid, track,
   async scanUrl(url, name) {
     const blob = await (await fetch(url)).blob(), loaded = await loadImage(blob);
     if (loaded) addImageSource({ ...loaded, name: name || url.split('/').pop(), key: await fileKey(blob) }, false);
