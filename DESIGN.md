@@ -45,6 +45,38 @@ accent's own lightness (OKLCH L 0.452 light, 0.709 dark; hue 25°).
 If the accent ever changes hue, rerun steps 1–6. Keep the blue-to-red exception for any blue accent, and
 update this table and the comment above the `:root` tokens in `index.html`.
 
+## App icon: "4+" (gold plate, polished blue Triple Drive)
+
+The browser tab, the logo in the page header, the iPhone and Android Home Screens and the Mac app all use one
+icon, chosen by the user on Nov 24, 2026.
+
+- **Emblem.** The Compare symbol's woven Triple Drive in an upright hexagon. The whole hexagon is gold, and the
+  symbol is blue.
+- **Painted metal, not flat colour.** Both metals are drawn in a "non-metallic metal" way: bands from a
+  near-white highlight through the full colour to a deep "horizon" band across the middle, then lighter again.
+  - The gold runs pale cream to gold to ochre to deep bronze and back. The blue runs pale ice blue to royal blue
+    to deep navy and back.
+  - The gold and the blue share one light direction (top left), so the reflections line up.
+  - Dark edges shape the symbol. A dark line and a pale line just inside the hexagon's edge read as a bevel.
+  - Small white star glints sit where the light hits.
+- **Weave gaps** are cut only where one strand passes over another, using masks, so the gaps' edges follow the
+  strand underneath.
+- **Tile.** On Home Screens and the Mac, the emblem sits at 75% of a navy square (#263062 to #0F1328, top to
+  bottom). Phones round the corners themselves. The Mac and "any" icon is a rounded square with a transparent
+  margin.
+- **Colour rule exception.** Gold is the light yellow that the contrast rule above normally drops. Here it's
+  the user's deliberate choice for the icon only; controls inside the app keep the contrast red.
+
+| File in `design/app-icon/` | Used for |
+|---|---|
+| `tab-icon.svg` | Browser tab, written into the `<head>` of `index.html` as SVG, with `tab-icon-32.png` as a fallback. Also the header logo: `<symbol id="app-mark">` in `index.html`, with its ids prefixed `am-` |
+| `app-icon-tile.svg` → `app-icon-tile-1024.png` | iPhone Home Screen (`apple-touch-icon.png`), Android maskable icon |
+| `app-icon-rounded.svg` → `app-icon-rounded-1024.png` | Mac app (`AppIcon.icns`), the manifest's "any" icons |
+
+The three SVGs are written by `tools\make-app-icon-svgs.ps1`, which keeps the colours and shapes in one place.
+To change the icon, edit that script and run it. Then run `tools\render-icons.ps1`, which renders the PNGs with
+Edge and rewrites the tab icon and the header logo in `index.html`. Then run `build-site.ps1`.
+
 ## Compare symbol: "H2 · B"
 
 The red part of a ticked **Compare** button and the bottom **Compare** button carry this symbol. It's an
