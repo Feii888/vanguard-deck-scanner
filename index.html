@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Vanguard Deck Scanner</title>
-<meta name="description" content="Drop Cardfight!! Vanguard results images, read every Decklog deck code in them, and see each deck's snapshot, grouped by team and seed.">
+<meta name="description" content="Paste or drop Cardfight!! Vanguard results images or X links, read every Decklog deck code in them, and see each deck's snapshot, grouped by team and seed.">
 <!-- Unlisted: search engines are asked not to index the hosted copy. -->
 <meta name="robots" content="noindex, nofollow">
 <!-- Home Screen app on iPhone, iPad and Android (icons and manifest are linked by script when hosted). -->
@@ -89,6 +89,7 @@ a { color: var(--accent); }
 .brand svg { flex: none; }
 .brand h1 { margin: 0; font: 700 22px/1.1 var(--f-display); letter-spacing: .01em; text-wrap: balance; }
 .brand p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.brand p b { font-weight: 600; }
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .seg { display: inline-flex; background: var(--sunk); border-radius: 8px; padding: 3px; gap: 2px; }
 .seg button {
@@ -573,7 +574,7 @@ body.has-decks { padding-bottom: 96px; }
       <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><use href="#app-mark"/></svg>
       <div>
         <h1>Vanguard Deck Scanner</h1>
-        <p>Read Decklog codes from results images and open every deck</p>
+        <p>Read Decklog codes from <b>images</b> and <b>X links</b></p>
       </div>
     </div>
     <div class="controls">
@@ -606,11 +607,11 @@ body.has-decks { padding-bottom: 96px; }
   <div id="view-scanner" role="tabpanel" aria-labelledby="tab-scanner">
   <section class="drop" id="drop" aria-label="Add images" data-drop-label="Drop to add">
     <input type="file" id="fileInput" accept="image/*" multiple hidden>
-    <h2 id="dropTitle">Paste or drop results images</h2>
-    <p class="lede" data-touch="Collect as many images as you like: tap Choose images to pick from your photos, or paste pictures and X / Twitter post links into the box at the top, then scan them together. Each code found opens as a deck snapshot from Decklog.">Collect as many images as you like: paste pictures or X / Twitter post links with <kbd class="k-mod">Ctrl</kbd>+<kbd>V</kbd>, drag and drop, or use the file picker, then scan them together. Each code found opens as a deck snapshot from Decklog. New here? Read the <a href="#guide">guide</a>.</p>
+    <h2 id="dropTitle">Paste or drop your results images</h2>
+    <p class="lede" data-touch="Feel free to add as many as you like, then scan them all in one go. Saw the results on X? Just paste the post's link and you'll get all its pictures. Every code found shows up as a deck snapshot from Decklog.">Feel free to add as many as you like, then scan them all in one go. Saw the results on X? Just paste the post's link and you'll get all its pictures. Every code found shows up as a deck snapshot from Decklog. New here? The <a href="#guide">guide</a> walks you through it.</p>
     <div class="how">
       <button class="btn" type="button" id="pickBtn">Choose images</button>
-      <span class="how-or" data-touch="or paste a picture or link into the box at the top">or paste with <kbd class="k-mod">Ctrl</kbd>+<kbd>V</kbd></span>
+      <span class="how-or" data-touch="or paste a picture or X link up top">or just paste with <kbd class="k-mod">Ctrl</kbd>+<kbd>V</kbd></span>
     </div>
     <div class="tray" id="tray" hidden>
       <div class="tray-items" id="trayItems" aria-live="polite"></div>
@@ -625,9 +626,9 @@ body.has-decks { padding-bottom: 96px; }
         <span class="how-or tray-key"><kbd class="k-mod">Ctrl</kbd>+<kbd class="k-enter">Enter</kbd></span>
       </div>
     </div>
-    <p class="examples">Codes look like <code>1GPYLQ</code> or <code>M5CZ6</code>. Links such as <code>decklog.bushiroad.com/view/1E74U4</code> can go in the box above.</p>
+    <p class="examples">Already have a code, like <code>1GPYLQ</code> or <code>M5CZ6</code>, or a link like <code>decklog.bushiroad.com/view/1E74U4</code>? Type or paste it into the box at the top.</p>
     <div class="drop-foot">
-      <label class="auto" for="autoScan"><input type="checkbox" id="autoScan" aria-labelledby="autoScanText"> <span id="autoScanText">Scan right away when images are added</span></label>
+      <label class="auto" for="autoScan"><input type="checkbox" id="autoScan" aria-labelledby="autoScanText"> <span id="autoScanText">Scan as soon as I add images</span></label>
       <div class="engine" id="engine" data-state="idle" role="status"><span class="dot"></span><span id="engineText">Text reader not loaded yet</span></div>
     </div>
   </section>
@@ -741,7 +742,7 @@ body.has-decks { padding-bottom: 96px; }
       <div class="qa"><h4>What happens if I paste the same image twice?</h4><p>The second copy is skipped and a message tells you so.</p></div>
       <div class="qa"><h4>Can I scan an image again?</h4><p>Yes. An image you've already scanned is marked “scanned before as Image 2” in the tray, but it isn't blocked, in case you want to re-scan it.</p></div>
       <div class="qa"><h4>Can I keep adding images while a scan is running?</h4><p>Yes. New images wait in the tray for the next Scan.</p></div>
-      <div class="qa"><h4>Can images scan as soon as I add them, like before?</h4><p>Tick “Scan right away when images are added” under the tray. It's off by default and remembered.</p></div>
+      <div class="qa"><h4>Can images scan as soon as I add them, like before?</h4><p>Tick “Scan as soon as I add images” under the tray. It's off by default and remembered.</p></div>
       <div class="qa"><h4>How do I get pictures from an X / Twitter post?</h4><p>Copy the post's link (Share → Copy link, or copy it from the address bar) and paste it anywhere in the app, the code box included. All of the post's pictures go into the tray at full size, named after the account.</p></div>
       <div class="qa"><h4>Which X link formats work?</h4><p>Any link to a post: x.com and twitter.com, mobile links, /i/status/ links, links ending in /photo/1 or with extra bits like ?s=46 after the number, links without https://, copied hyperlinks, and FxTwitter, VxTwitter or Nitter links. Short t.co links can't be opened; copy the post's own link instead.</p></div>
       <div class="qa"><h4>Pasting an X link didn't bring any pictures. Why?</h4><p>The post may be deleted, from a protected account, age-restricted, or have only a video. If the lookup service is down, the app says so: then open the post, right-click a picture, choose <i>Copy image</i> and paste it.</p></div>
@@ -1182,7 +1183,7 @@ function engineLogger(m) {
 function prewarm() {
   if (!workerP) { setEngine('loading', 'Starting text reader…'); sink = engineLogger; }
   getWorker().then(
-    () => { if (sink === engineLogger) sink = null; setEngine('ready', 'Text reader ready. Images are read on this computer.'); },
+    () => { if (sink === engineLogger) sink = null; setEngine('ready', 'All set. Your images stay on this device.'); },
     e => { if (sink === engineLogger) sink = null; setEngine('error', (e && e.message ? e.message : 'Text reader failed to load.') + ' You can still type codes above.'); },
   );
 }
@@ -2314,7 +2315,7 @@ function updateSummary() {
 function updateChrome() {
   const n = state.tray.length, hasImage = state.sources.some(s => s.kind === 'image');
   $('#drop').classList.toggle('compact', state.sources.length > 0 && !n);
-  $('#dropTitle').textContent = n ? `${plural(n, 'image')} ready to scan` : hasImage ? 'Add more images' : state.sources.length ? 'Add images' : 'Paste or drop results images';
+  $('#dropTitle').textContent = n ? `${plural(n, 'image')} ready to scan` : hasImage ? 'Add more images' : state.sources.length ? 'Add images' : 'Paste or drop your results images';
   $('#drop').dataset.dropLabel = state.auto ? 'Drop to scan' : 'Drop to add';
   updateTabDot();
 }

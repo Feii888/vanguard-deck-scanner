@@ -1,7 +1,7 @@
 {
   "name": "Vanguard Deck Scanner",
   "short_name": "Deck Scanner",
-  "description": "Read Decklog deck codes from Cardfight!! Vanguard results images and open every deck.",
+  "description": "Read Decklog deck codes from Cardfight!! Vanguard images and X links.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
